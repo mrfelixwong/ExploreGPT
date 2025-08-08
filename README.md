@@ -1,67 +1,83 @@
-# FelixGPT - Multi-LLM Chat Application
+# ExploreGPT - Multi-LLM Chat Application
 
-A simple Flask web application that allows you to chat with multiple LLM providers (OpenAI, Anthropic, Google) simultaneously.
+A Flask web application that allows you to chat with multiple LLM providers (OpenAI, Google Gemini, Anthropic) simultaneously.
 
-## Features
+## ✨ Features
 
-- **Multi-LLM Chat**: Send messages to OpenAI, Anthropic, and Google simultaneously
-- **Custom Memory System**: Learns about you from conversations
-- **Cost Tracking**: Monitor API usage and costs
-- **Comprehensive Settings**: Configure models, providers, and behavior
-- **Server-side Rendering**: Simple HTML interface, no JavaScript required
+- **🤖 Multi-LLM Chat**: Send messages to multiple AI providers at once
+- **🧠 Smart Memory System**: Learns and remembers user preferences
+- **💰 Cost Tracking**: Monitor API usage and spending
+- **⚙️ Rich Settings**: Configure models, providers, and behavior
+- **🌙 Dark Mode**: Beautiful light/dark theme support
+- **🔒 Secure**: Environment-based API key management
 
-## Setup
+## 🚀 Quick Start
 
-1. **Install Dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-2. **Configure API Keys**:
-   ```bash
-   python config.py
-   ```
-   This will prompt you to enter your OpenAI API key and save it securely.
-
-3. **Run the Application**:
-   ```bash
-   python app.py
-   ```
-
-4. **Open Browser**: Go to http://localhost:5000
-
-### Alternative Setup Methods
-
-**Quick Setup Script**:
 ```bash
-./setup_keys.sh
+# 1. Install dependencies
+pip install -r requirements.txt
+
+# 2. Configure API keys (see API_KEYS_SETUP.md)
+
+# 3. Start the application
+python start.py
 ```
 
-**Manual .env File Setup**:
-Edit the `.env` file and replace `your-openai-api-key-here` with your actual API key from https://platform.openai.com/api-keys
+Then open http://localhost:5001 in your browser.
 
-## Usage
+## 📖 Documentation
 
-1. **Chat**: Send messages on the home page to all enabled LLM providers
-2. **Settings**: Configure models, providers, memory, and cost settings
-3. **Memory**: View stored conversations and learned user facts
+- **[API Keys Setup](API_KEYS_SETUP.md)** - How to securely configure your API keys
+- **[Testing Guide](TESTING_INSTRUCTIONS.md)** - Complete testing instructions
+- **[Known Issues](ANTHROPIC_ISSUE.md)** - Anthropic API library compatibility
 
-## File Structure
+## 🎯 Supported Providers
+
+- ✅ **OpenAI** (GPT-4, GPT-3.5)
+- ✅ **Google Gemini** (All models)  
+- ⚠️ **Anthropic Claude** (Disabled due to library issues)
+
+## 🏗️ Project Structure
 
 ```
-felixgpt/
+exploregpt/
 ├── app.py                 # Main Flask application
+├── start.py              # Quick launcher script
 ├── models/
 │   ├── settings.py        # Settings management
-│   ├── cost_tracker.py    # API cost tracking
+│   ├── cost_tracker.py    # Cost tracking
 │   └── llm_clients.py     # LLM orchestration
 ├── templates/             # HTML templates
-└── requirements.txt       # Python dependencies
+├── tests/                 # Unit test suite
+└── requirements.txt       # Dependencies
 ```
 
-## Configuration
+## 🧪 Testing
 
-The application creates several files for persistence:
-- `user_settings.json`: User preferences and settings
-- `cost_tracking.json`: API cost data
-- `memory.db`: SQLite database for conversations and user facts
+```bash
+# Quick API test
+python test_working_apis.py
+
+# Flask application test  
+python test_flask_startup.py
+
+# Full test suite
+python run_tests.py
+```
+
+## 🛠️ Development
+
+The application creates local data files:
+- `user_settings.json`: User preferences
+- `cost_tracking.json`: API cost data  
+- `memory.db`: Conversation history
+
+These files are gitignored and contain your personal data.
+
+## 🔒 Security
+
+API keys are stored as environment variables in your `~/.zshrc` file - never in the codebase. See `API_KEYS_SETUP.md` for complete security details.
+
+## 📝 License
+
+This project is open source - feel free to use and modify!
