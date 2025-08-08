@@ -103,38 +103,11 @@
         
         <!-- Memory Settings -->
         <div class="card">
-            <h3>Memory Settings</h3>
-            
-            <div class="form-group">
-                <label for="context_count">Context items to include:</label>
-                <input type="number" name="context_count" id="context_count" 
-                       value="{{ settings.memory_settings.context_count }}" min="0" max="20">
-            </div>
-            
-            <div class="form-group">
-                <label>
-                    <input type="checkbox" name="auto_learning"
-                           {% if settings.memory_settings.auto_learning %}checked{% endif %}>
-                    Enable auto-learning from conversations
-                </label>
-            </div>
-            
-            <div class="form-group">
-                <label for="retention_days">Retention (days):</label>
-                <input type="number" name="retention_days" id="retention_days" 
-                       value="{{ settings.memory_settings.retention_days }}" min="1" max="365">
-            </div>
-            
-            <h4>Memory Types</h4>
-            {% for memory_type, enabled in settings.memory_settings.memory_types.items() %}
-                <div class="form-group">
-                    <label>
-                        <input type="checkbox" name="memory_{{ memory_type }}"
-                               {% if enabled %}checked{% endif %}>
-                        {{ memory_type.replace('_', ' ')|title }}
-                    </label>
-                </div>
-            {% endfor %}
+            <h3>Context Settings</h3>
+            <p style="color: #666; font-size: 0.9em;">
+                ExploreGPT automatically uses your recent conversation history as context for better responses.
+                No configuration needed.
+            </p>
         </div>
         
         <!-- Cost Management -->
@@ -145,36 +118,11 @@
                 <label>
                     <input type="checkbox" name="track_costs"
                            {% if settings.cost_management.track_costs %}checked{% endif %}>
-                    Enable cost tracking
+                    Enable basic cost tracking
                 </label>
-            </div>
-            
-            <div class="form-group">
-                <label for="daily_budget">Daily Budget ($):</label>
-                <input type="number" name="daily_budget" id="daily_budget" step="0.01"
-                       value="{{ settings.cost_management.daily_budget }}">
-            </div>
-            
-            <div class="form-group">
-                <label for="monthly_budget">Monthly Budget ($):</label>
-                <input type="number" name="monthly_budget" id="monthly_budget" step="0.01"
-                       value="{{ settings.cost_management.monthly_budget }}">
-            </div>
-            
-            <div class="form-group">
-                <label>
-                    <input type="checkbox" name="show_cost_estimates"
-                           {% if settings.cost_management.show_cost_estimates %}checked{% endif %}>
-                    Show cost estimates
-                </label>
-            </div>
-            
-            <div class="form-group">
-                <label>
-                    <input type="checkbox" name="smart_routing"
-                           {% if settings.cost_management.smart_routing %}checked{% endif %}>
-                    Smart routing (stop at first good response)
-                </label>
+                <p style="color: #666; font-size: 0.8em; margin-top: 0.25rem;">
+                    <strong>Note:</strong> Cost estimates are approximate and may be outdated
+                </p>
             </div>
         </div>
         
@@ -201,27 +149,10 @@
             
             
             <div class="form-group">
-                <label for="font_size">Font Size:</label>
-                <select name="font_size" id="font_size">
-                    <option value="small" {% if settings.ui_settings.font_size == 'small' %}selected{% endif %}>Small</option>
-                    <option value="medium" {% if settings.ui_settings.font_size == 'medium' %}selected{% endif %}>Medium</option>
-                    <option value="large" {% if settings.ui_settings.font_size == 'large' %}selected{% endif %}>Large</option>
-                </select>
-            </div>
-            
-            <div class="form-group">
-                <label>
-                    <input type="checkbox" name="auto_scroll"
-                           {% if settings.ui_settings.auto_scroll %}checked{% endif %}>
-                    Auto-scroll to new responses
-                </label>
-            </div>
-            
-            <div class="form-group">
                 <label>
                     <input type="checkbox" name="show_timestamps"
                            {% if settings.ui_settings.show_timestamps %}checked{% endif %}>
-                    Show timestamps
+                    Show response times
                 </label>
             </div>
         </div>
@@ -234,31 +165,10 @@
 {% if settings.cost_management.track_costs %}
     <div class="card" style="margin-top: 2rem;">
         <h3>Cost Summary</h3>
-        <div class="grid">
-            <div>
-                <h4>Today: ${{ "%.4f"|format(cost_summary.today.total) }}</h4>
-                {% if cost_summary.today.by_provider %}
-                    <ul>
-                        {% for provider, cost in cost_summary.today.by_provider.items() %}
-                            <li>{{ provider|title }}: ${{ "%.4f"|format(cost) }}</li>
-                        {% endfor %}
-                    </ul>
-                {% endif %}
-            </div>
-            <div>
-                <h4>This Month: ${{ "%.4f"|format(cost_summary.this_month.total) }}</h4>
-                {% if cost_summary.this_month.by_provider %}
-                    <ul>
-                        {% for provider, cost in cost_summary.this_month.by_provider.items() %}
-                            <li>{{ provider|title }}: ${{ "%.4f"|format(cost) }}</li>
-                        {% endfor %}
-                    </ul>
-                {% endif %}
-            </div>
-            <div>
-                <h4>All Time: ${{ "%.4f"|format(cost_summary.all_time.total) }}</h4>
-            </div>
-        </div>
+        <p><strong>Today:</strong> ${{ "%.4f"|format(cost_summary.today.total) }}</p>
+        {% if cost_summary.warning %}
+            <p style="color: #dc2626; font-size: 0.9em;">⚠️ {{ cost_summary.warning }}</p>
+        {% endif %}
     </div>
 {% endif %}
 

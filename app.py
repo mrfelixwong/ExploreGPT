@@ -44,15 +44,7 @@ def init_db():
     columns = [column[1] for column in cursor.fetchall()]
     if 'session_id' not in columns:
         cursor.execute('ALTER TABLE conversations ADD COLUMN session_id TEXT')
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS user_facts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            fact_type TEXT NOT NULL,
-            content TEXT NOT NULL,
-            timestamp TEXT NOT NULL,
-            relevance_score REAL DEFAULT 1.0
-        )
-    ''')
+    # Removed user_facts table - simplified to conversation context only
     conn.commit()
     conn.close()
 
@@ -102,9 +94,6 @@ def chat():
     
     # Store conversation with session ID
     store_conversation(user_message, response, context, session['session_id'])
-    
-    # Extract and store user facts
-    extract_user_facts(user_message, response)
     
     # Redirect back to index with updated conversation
     return redirect(url_for('index'))
@@ -163,7 +152,6 @@ def stream_chat():
             }
             
             store_conversation(user_message, complete_response, context, session['session_id'])
-            extract_user_facts(user_message, complete_response)
             
             # Log successful streaming completion
             debug_log("streaming_complete", {
@@ -238,34 +226,14 @@ def update_settings():
         'show_metadata': 'show_metadata' in request.form
     }
     
-    # Memory settings
-    new_settings['memory_settings'] = {
-        'context_count': int(request.form.get('context_count', 5)),
-        'auto_learning': 'auto_learning' in request.form,
-        'retention_days': int(request.form.get('retention_days', 30)),
-        'memory_types': {
-            'personal_facts': 'memory_personal_facts' in request.form,
-            'preferences': 'memory_preferences' in request.form,
-            'context': 'memory_context' in request.form,
-            'work_info': 'memory_work_info' in request.form
-        }
-    }
-    
-    # Cost management
+    # Simplified cost management
     new_settings['cost_management'] = {
-        'track_costs': 'track_costs' in request.form,
-        'daily_budget': float(request.form.get('daily_budget', 5.0)),
-        'monthly_budget': float(request.form.get('monthly_budget', 50.0)),
-        'show_cost_estimates': 'show_cost_estimates' in request.form,
-        'smart_routing': 'smart_routing' in request.form
+        'track_costs': 'track_costs' in request.form
     }
     
     # UI settings
     new_settings['ui_settings'] = {
         'theme': request.form.get('theme', 'light'),
-        'layout': 'single',  # Always single now
-        'font_size': request.form.get('font_size', 'medium'),
-        'auto_scroll': 'auto_scroll' in request.form,
         'selected_provider': request.form.get('selected_provider', 'openai'),
         'show_timestamps': 'show_timestamps' in request.form
     }
@@ -294,50 +262,35 @@ def memory_page():
     ''')
     conversations = cursor.fetchall()
     
-    # Get user facts
-    cursor.execute('''
-        SELECT fact_type, content, timestamp, relevance_score
-        FROM user_facts 
-        ORDER BY relevance_score DESC, timestamp DESC
-        LIMIT 50
-    ''')
-    facts = cursor.fetchall()
-    
     conn.close()
     
     ui_classes = settings_manager.get_ui_classes(current_settings)
     return render_template('memory.html', 
                          conversations=conversations,
-                         facts=facts,
                          settings=current_settings,
                          ui_classes=ui_classes)
 
-def get_relevant_context(message, limit=5):
-    """Get relevant context from memory for the message"""
-    if not current_settings.get('memory_settings', {}).get('auto_learning', False):
+def get_relevant_context(message, limit=3):
+    """Get simple conversation context from recent chat history"""
+    session_id = session.get('session_id')
+    if not session_id:
         return []
     
-    conn = sqlite3.connect('memory.db')
-    cursor = conn.cursor()
-    
-    # Simple keyword-based context retrieval
-    words = message.lower().split()
+    # Get last few conversation turns as context
+    recent_conversation = get_session_conversation(session_id, limit)
     context = []
     
-    # Get relevant user facts
-    for word in words[:5]:  # Use first 5 words for context
-        cursor.execute('''
-            SELECT content FROM user_facts 
-            WHERE content LIKE ? 
-            ORDER BY relevance_score DESC 
-            LIMIT ?
-        ''', (f'%{word}%', limit))
-        
-        facts = cursor.fetchall()
-        context.extend([fact[0] for fact in facts])
+    for turn in recent_conversation:
+        # Add both user message and AI response as context
+        context.append(f"User: {turn['user_message']}")
+        if turn['response']['response']:
+            # Truncate long responses to keep context manageable
+            response_text = turn['response']['response'][:200]
+            if len(turn['response']['response']) > 200:
+                response_text += "..."
+            context.append(f"AI: {response_text}")
     
-    conn.close()
-    return list(set(context))[:limit]  # Remove duplicates and limit
+    return context[-6:]  # Last 3 exchanges (up to 6 messages total)
 
 def store_conversation(user_message, response, context, session_id):
     """Store conversation in memory with session tracking"""
@@ -388,37 +341,7 @@ def get_session_conversation(session_id, limit=10):
     
     return conversation
 
-def extract_user_facts(user_message, response):
-    """Extract and store user facts from the conversation"""
-    if not current_settings.get('memory_settings', {}).get('auto_learning', False):
-        return
-    
-    # Simple fact extraction - look for patterns like "I am...", "I like...", "I work..."
-    message_lower = user_message.lower()
-    facts = []
-    
-    if "i am " in message_lower:
-        facts.append(("personal", user_message))
-    elif "i like " in message_lower or "i love " in message_lower:
-        facts.append(("preferences", user_message))
-    elif "i work " in message_lower or "my job " in message_lower:
-        facts.append(("work_info", user_message))
-    elif any(word in message_lower for word in ["my name", "called", "prefer"]):
-        facts.append(("personal_facts", user_message))
-    
-    if facts:
-        conn = sqlite3.connect('memory.db')
-        cursor = conn.cursor()
-        timestamp = datetime.now().isoformat()
-        
-        for fact_type, content in facts:
-            cursor.execute('''
-                INSERT INTO user_facts (fact_type, content, timestamp)
-                VALUES (?, ?, ?)
-            ''', (fact_type, content, timestamp))
-        
-        conn.commit()
-        conn.close()
+# Removed complex fact extraction - now using simple conversation context instead
 
 
 if __name__ == '__main__':
