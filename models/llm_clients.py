@@ -5,6 +5,7 @@ import os
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from .cost_tracker import cost_tracker
+from .web_search import web_search_manager
 
 class LLMOrchestrator:
     def __init__(self, settings=None):
@@ -86,7 +87,7 @@ class LLMOrchestrator:
         return response
     
     def chat_single_stream(self, message, context=None):
-        """Stream message to the selected LLM provider"""
+        """Stream message to the selected LLM provider with optional web search"""
         # Get selected provider from settings
         selected_provider = self.settings.get('ui_settings', {}).get('selected_provider', 'openai')
         
@@ -99,6 +100,22 @@ class LLMOrchestrator:
             }
             return
         
+        # Check if web search is needed
+        search_results_text = ""
+        if web_search_manager.should_search(message):
+            yield {'type': 'searching', 'message': '🔍 Searching the web...'}
+            
+            search_results = web_search_manager.search(message, count=5, extract_content=True)
+            if search_results:
+                search_results_text = "\n\n" + web_search_manager.format_for_llm(message, search_results)
+                yield {
+                    'type': 'search_complete', 
+                    'message': f'📰 Found {len(search_results)} results',
+                    'results': [r.to_dict() for r in search_results]
+                }
+            else:
+                yield {'type': 'search_complete', 'message': '⚠️ No search results found'}
+        
         # Prepare context
         context_text = ""
         if context:
@@ -106,7 +123,7 @@ class LLMOrchestrator:
             limited_context = context[:context_count]
             context_text = "\n\nRelevant context:\n" + "\n".join(limited_context)
         
-        full_message = message + context_text
+        full_message = message + search_results_text + context_text
         
         # Check budget if cost tracking enabled
         if self._should_check_budget():

@@ -38,6 +38,20 @@
         {% endif %}
     </form>
     
+    <!-- Search indicator (hidden by default) -->
+    <div id="search-indicator" style="display: none; margin-top: 1rem; padding: 1rem; background: #e3f2fd; border-radius: 6px; border-left: 4px solid #2196f3;">
+        <div id="search-message">🔍 Searching the web...</div>
+    </div>
+    
+    <!-- Search results (hidden by default) -->
+    <div id="search-results" style="display: none; margin-top: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 6px; border-left: 4px solid #28a745;">
+        <div id="search-results-header" style="font-weight: bold; margin-bottom: 0.5rem;">📰 Search Results</div>
+        <div id="search-results-list"></div>
+        <div id="search-toggle" style="margin-top: 0.5rem;">
+            <button type="button" onclick="toggleSearchResults()" style="background: none; border: none; color: #007bff; cursor: pointer; font-size: 0.9em;">Show Details</button>
+        </div>
+    </div>
+    
     <!-- Typing indicator (hidden by default) -->
     <div id="typing-indicator" style="display: none; margin-top: 1rem; padding: 1rem; background: #f0f0f0; border-radius: 6px; font-style: italic;">
         <div class="typing-animation">
@@ -73,8 +87,10 @@
         sendBtn.textContent = 'Sending...';
         messageInput.disabled = true;
         
-        // Show typing indicator
-        document.getElementById('typing-indicator').style.display = 'block';
+        // Reset all indicators
+        document.getElementById('search-indicator').style.display = 'none';
+        document.getElementById('search-results').style.display = 'none';
+        document.getElementById('typing-indicator').style.display = 'none';
         document.getElementById('streaming-response').style.display = 'none';
         streamingContent = '';
         
@@ -122,7 +138,36 @@
         });
         
         function handleStreamData(data) {
-            if (data.type === 'typing') {
+            if (data.type === 'searching') {
+                // Show search indicator
+                document.getElementById('search-indicator').style.display = 'block';
+                document.getElementById('search-message').textContent = data.message;
+                
+            } else if (data.type === 'search_complete') {
+                // Show search results
+                document.getElementById('search-indicator').style.display = 'none';
+                document.getElementById('search-results').style.display = 'block';
+                document.getElementById('search-results-header').textContent = data.message;
+                
+                // Display search results
+                if (data.results && data.results.length > 0) {
+                    let resultsHtml = '<div style="font-size: 0.9em;">';
+                    data.results.forEach((result, index) => {
+                        resultsHtml += `
+                            <div style="margin-bottom: 0.5rem; padding: 0.5rem; background: white; border-radius: 4px;">
+                                <strong>${result.title}</strong><br>
+                                <a href="${result.url}" target="_blank" style="color: #007bff; font-size: 0.8em;">${result.url}</a><br>
+                                <span style="color: #666; font-size: 0.8em;">${result.snippet}</span>
+                            </div>
+                        `;
+                    });
+                    resultsHtml += '</div>';
+                    document.getElementById('search-results-list').innerHTML = resultsHtml;
+                } else {
+                    document.getElementById('search-results-list').innerHTML = '<em>No detailed results available</em>';
+                }
+                
+            } else if (data.type === 'typing') {
                 // Keep typing indicator
                 document.getElementById('typing-indicator').style.display = 'block';
                 
@@ -157,12 +202,35 @@
         
         function handleError(message) {
             document.getElementById('streaming-content').textContent = message;
+            document.getElementById('search-indicator').style.display = 'none';
             document.getElementById('typing-indicator').style.display = 'none';
             
             // Re-enable form
             sendBtn.disabled = false;
             sendBtn.textContent = 'Send Message';
             messageInput.disabled = false;
+        }
+    });
+    
+    // Toggle search results details
+    function toggleSearchResults() {
+        const resultsList = document.getElementById('search-results-list');
+        const toggleBtn = document.querySelector('#search-toggle button');
+        
+        if (resultsList.style.display === 'none') {
+            resultsList.style.display = 'block';
+            toggleBtn.textContent = 'Hide Details';
+        } else {
+            resultsList.style.display = 'none';
+            toggleBtn.textContent = 'Show Details';
+        }
+    }
+    
+    // Initially hide search results details
+    document.addEventListener('DOMContentLoaded', function() {
+        const resultsList = document.getElementById('search-results-list');
+        if (resultsList) {
+            resultsList.style.display = 'none';
         }
     });
     </script>

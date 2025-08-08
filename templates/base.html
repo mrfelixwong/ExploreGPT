@@ -350,6 +350,23 @@
             background: #2a2a2a;
             border-left-color: #60a5fa;
         }
+        
+        /* Dark mode for search indicators */
+        body.theme-dark #search-indicator {
+            background: #1e3a8a;
+            color: #e5e7eb;
+            border-left-color: #60a5fa;
+        }
+        
+        body.theme-dark #search-results {
+            background: #2a2a2a;
+            color: #e5e7eb;
+            border-left-color: #10b981;
+        }
+        
+        body.theme-dark #search-results-list > div > div {
+            background: #374151 !important;
+        }
     </style>
 </head>
 <body class="{{ ui_classes.theme_class if ui_classes else 'theme-light' }}">
