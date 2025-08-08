@@ -85,6 +85,105 @@ class LLMOrchestrator:
         
         return response
     
+    def chat_single_stream(self, message, context=None):
+        """Stream message to the selected LLM provider"""
+        # Get selected provider from settings
+        selected_provider = self.settings.get('ui_settings', {}).get('selected_provider', 'openai')
+        
+        # Check if provider is available
+        if selected_provider not in self.clients:
+            yield {
+                'type': 'error',
+                'message': f'Provider {selected_provider} is not available',
+                'provider': selected_provider
+            }
+            return
+        
+        # Prepare context
+        context_text = ""
+        if context:
+            context_count = self.settings.get('memory_settings', {}).get('context_count', 5)
+            limited_context = context[:context_count]
+            context_text = "\n\nRelevant context:\n" + "\n".join(limited_context)
+        
+        full_message = message + context_text
+        
+        # Check budget if cost tracking enabled
+        if self._should_check_budget():
+            estimated_tokens = cost_tracker.estimate_message_tokens(full_message)
+            model = self.settings.get('models', {}).get(selected_provider, '')
+            estimated_cost = cost_tracker.estimate_cost(selected_provider, model, estimated_tokens)
+            
+            daily_budget = self.settings.get('cost_management', {}).get('daily_budget', float('inf'))
+            if estimated_cost > daily_budget / 5:
+                yield {
+                    'type': 'error',
+                    'message': f'Request skipped: estimated cost ${estimated_cost:.4f} exceeds budget limits',
+                    'provider': selected_provider
+                }
+                return
+        
+        # Stream from the selected provider
+        if selected_provider == 'openai':
+            yield from self._stream_openai(full_message)
+        else:
+            # Fallback to non-streaming for other providers
+            yield {'type': 'start', 'provider': selected_provider}
+            response = self._call_provider(selected_provider, full_message)
+            yield {
+                'type': 'content', 
+                'text': response['response'],
+                'provider': selected_provider
+            }
+            yield {'type': 'end', 'provider': selected_provider}
+
+    def _stream_openai(self, message):
+        """Stream OpenAI response"""
+        start_time = time.time()
+        model = self.settings.get('models', {}).get('openai', 'gpt-3.5-turbo')
+        
+        try:
+            yield {'type': 'start', 'provider': 'openai', 'model': model}
+            
+            # Create streaming request
+            stream = self.clients['openai'].chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": message}],
+                max_tokens=self.settings.get('response_settings', {}).get('max_tokens', 1000),
+                temperature=self.settings.get('response_settings', {}).get('temperature', 0.7),
+                timeout=self.settings.get('response_settings', {}).get('timeout', 30),
+                stream=True
+            )
+            
+            full_response = ""
+            for chunk in stream:
+                if chunk.choices[0].delta.content:
+                    content = chunk.choices[0].delta.content
+                    full_response += content
+                    yield {
+                        'type': 'content',
+                        'text': content,
+                        'provider': 'openai'
+                    }
+            
+            # Send completion metadata
+            latency = round((time.time() - start_time) * 1000, 2)
+            yield {
+                'type': 'end',
+                'provider': 'openai',
+                'model': model,
+                'latency': latency,
+                'full_response': full_response
+            }
+            
+        except Exception as e:
+            yield {
+                'type': 'error',
+                'message': f'Error: {str(e)}',
+                'provider': 'openai',
+                'latency': round((time.time() - start_time) * 1000, 2)
+            }
+    
     def _get_enabled_providers(self):
         """Get list of enabled providers in priority order"""
         provider_settings = self.settings.get('provider_settings', {})

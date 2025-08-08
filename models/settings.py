@@ -11,7 +11,7 @@ class SettingsManager:
         """Default configuration settings"""
         return {
             'models': {
-                'openai': 'gpt-4',
+                'openai': 'gpt-3.5-turbo',
                 'anthropic': 'claude-3-sonnet-20240229',
                 'google': 'gemini-1.5-flash'
             },

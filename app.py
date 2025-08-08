@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, jsonify, session
+from flask import Flask, render_template, request, redirect, url_for, jsonify, session, Response
 from models.settings import settings_manager
 from models.llm_clients import LLMOrchestrator
 from models.cost_tracker import cost_tracker
@@ -107,6 +107,58 @@ def new_chat():
     """Start a new chat session"""
     session['session_id'] = str(uuid.uuid4())
     return redirect(url_for('index'))
+
+@app.route('/stream-chat', methods=['POST'])
+def stream_chat():
+    """Stream chat response using Server-Sent Events"""
+    user_message = request.json.get('message', '').strip()
+    if not user_message:
+        return Response("data: " + json.dumps({'type': 'error', 'message': 'No message provided'}) + "\n\n", mimetype='text/plain')
+    
+    # Ensure session exists
+    if 'session_id' not in session:
+        session['session_id'] = str(uuid.uuid4())
+    
+    def generate():
+        try:
+            # Send typing indicator
+            yield "data: " + json.dumps({'type': 'typing', 'message': 'AI is thinking...'}) + "\n\n"
+            
+            # Get relevant context from memory
+            context = get_relevant_context(user_message)
+            
+            # Stream response from LLM
+            full_response_text = ""
+            response_metadata = {}
+            
+            for chunk in orchestrator.chat_single_stream(user_message, context):
+                yield "data: " + json.dumps(chunk) + "\n\n"
+                
+                # Collect full response for storage
+                if chunk['type'] == 'content':
+                    full_response_text += chunk['text']
+                elif chunk['type'] == 'end':
+                    response_metadata = chunk
+                    
+            # Store complete response
+            complete_response = {
+                'response': full_response_text,
+                'success': True,
+                'provider': response_metadata.get('provider', 'unknown'),
+                'model': response_metadata.get('model', ''),
+                'latency': response_metadata.get('latency', 0)
+            }
+            
+            store_conversation(user_message, complete_response, context, session['session_id'])
+            extract_user_facts(user_message, complete_response)
+            
+            # Send final complete signal
+            yield "data: " + json.dumps({'type': 'complete'}) + "\n\n"
+            
+        except Exception as e:
+            yield "data: " + json.dumps({'type': 'error', 'message': str(e)}) + "\n\n"
+    
+    return Response(generate(), mimetype='text/plain')
 
 @app.route('/settings')
 def settings_page():

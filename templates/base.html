@@ -324,6 +324,32 @@
         body.theme-dark .ai-response {
             color: #e5e7eb;
         }
+        
+        /* Typing Indicator Animation */
+        .typing-animation .dots span {
+            opacity: 0.4;
+            animation: typing-dots 1.4s infinite;
+        }
+        
+        .typing-animation .dots span:nth-child(1) { animation-delay: 0s; }
+        .typing-animation .dots span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-animation .dots span:nth-child(3) { animation-delay: 0.4s; }
+        
+        @keyframes typing-dots {
+            0%, 60%, 100% { opacity: 0.4; }
+            30% { opacity: 1; }
+        }
+        
+        /* Dark mode for typing indicator */
+        body.theme-dark #typing-indicator {
+            background: #2a2a2a;
+            color: #e5e7eb;
+        }
+        
+        body.theme-dark #streaming-response {
+            background: #2a2a2a;
+            border-left-color: #60a5fa;
+        }
     </style>
 </head>
 <body class="{{ ui_classes.theme_class if ui_classes else 'theme-light' }}">
