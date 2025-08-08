@@ -4,8 +4,8 @@
 
 ### 🎯 Project Context
 When working on ExploreGPT, Claude should always understand:
-- This is a Flask-based multi-LLM chat application
-- Primary goal: Enable simultaneous conversations with multiple AI providers
+- This is a Flask-based single-LLM chat application with provider selection
+- Primary goal: Enable conversations with user's choice of AI provider
 - Current working providers: OpenAI, Google Gemini
 - Anthropic Claude is disabled due to library compatibility issues
 

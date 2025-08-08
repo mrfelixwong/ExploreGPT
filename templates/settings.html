@@ -183,6 +183,15 @@
             <h3>UI Settings</h3>
             
             <div class="form-group">
+                <label for="selected_provider">AI Provider:</label>
+                <select name="selected_provider" id="selected_provider">
+                    <option value="openai" {% if settings.ui_settings.selected_provider == 'openai' %}selected{% endif %}>OpenAI</option>
+                    <option value="google" {% if settings.ui_settings.selected_provider == 'google' %}selected{% endif %}>Google Gemini</option>
+                    <option value="anthropic" {% if settings.ui_settings.selected_provider == 'anthropic' %}selected{% endif %} disabled>Anthropic (Disabled)</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
                 <label for="theme">Theme:</label>
                 <select name="theme" id="theme">
                     <option value="light" {% if settings.ui_settings.theme == 'light' %}selected{% endif %}>Light</option>
@@ -190,13 +199,6 @@
                 </select>
             </div>
             
-            <div class="form-group">
-                <label for="layout">Layout:</label>
-                <select name="layout" id="layout">
-                    <option value="grid" {% if settings.ui_settings.layout == 'grid' %}selected{% endif %}>Grid</option>
-                    <option value="vertical" {% if settings.ui_settings.layout == 'vertical' %}selected{% endif %}>Vertical</option>
-                </select>
-            </div>
             
             <div class="form-group">
                 <label for="font_size">Font Size:</label>

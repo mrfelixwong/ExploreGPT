@@ -1,10 +1,10 @@
-# ExploreGPT - Multi-LLM Chat Application
+# ExploreGPT - AI Chat Application
 
-A Flask web application that allows you to chat with multiple LLM providers (OpenAI, Google Gemini, Anthropic) simultaneously.
+A Flask web application that allows you to chat with your choice of AI providers (OpenAI, Google Gemini, Anthropic).
 
 ## ✨ Features
 
-- **🤖 Multi-LLM Chat**: Send messages to multiple AI providers at once
+- **🤖 Provider Selection**: Choose your preferred AI provider for each conversation
 - **🧠 Smart Memory System**: Learns and remembers user preferences
 - **💰 Cost Tracking**: Monitor API usage and spending
 - **⚙️ Rich Settings**: Configure models, providers, and behavior

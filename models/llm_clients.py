@@ -41,13 +41,19 @@ class LLMOrchestrator:
         google_model = settings.get('models', {}).get('google', 'gemini-pro')
         self.clients['google'] = genai.GenerativeModel(google_model)
     
-    def chat_with_all(self, message, context=None):
-        """Send message to all enabled LLMs simultaneously"""
-        # Get enabled providers from settings
-        enabled_providers = self._get_enabled_providers()
+    def chat_single(self, message, context=None):
+        """Send message to the selected LLM provider"""
+        # Get selected provider from settings
+        selected_provider = self.settings.get('ui_settings', {}).get('selected_provider', 'openai')
         
-        if not enabled_providers:
-            return {'error': 'No providers enabled'}
+        # Check if provider is available
+        if selected_provider not in self.clients:
+            return {
+                'response': f'Provider {selected_provider} is not available',
+                'success': False,
+                'latency': 0,
+                'provider': selected_provider
+            }
         
         # Prepare context
         context_text = ""
@@ -61,29 +67,23 @@ class LLMOrchestrator:
         # Check budget if cost tracking enabled
         if self._should_check_budget():
             estimated_tokens = cost_tracker.estimate_message_tokens(full_message)
-            for provider in enabled_providers:
-                model = self.settings.get('models', {}).get(provider, '')
-                estimated_cost = cost_tracker.estimate_cost(provider, model, estimated_tokens)
-                
-                daily_budget = self.settings.get('cost_management', {}).get('daily_budget', float('inf'))
-                if estimated_cost > daily_budget / 5:  # Don't use more than 20% of daily budget on one request
-                    return {provider: {
-                        'response': f'Request skipped: estimated cost ${estimated_cost:.4f} exceeds budget limits',
-                        'success': False,
-                        'latency': 0
-                    }}
+            model = self.settings.get('models', {}).get(selected_provider, '')
+            estimated_cost = cost_tracker.estimate_cost(selected_provider, model, estimated_tokens)
+            
+            daily_budget = self.settings.get('cost_management', {}).get('daily_budget', float('inf'))
+            if estimated_cost > daily_budget / 5:  # Don't use more than 20% of daily budget on one request
+                return {
+                    'response': f'Request skipped: estimated cost ${estimated_cost:.4f} exceeds budget limits',
+                    'success': False,
+                    'latency': 0,
+                    'provider': selected_provider
+                }
         
-        responses = {}
+        # Call the selected provider
+        response = self._call_provider(selected_provider, full_message)
+        response['provider'] = selected_provider
         
-        # Determine if we should run in parallel
-        parallel_requests = self.settings.get('response_settings', {}).get('parallel_requests', True)
-        
-        if parallel_requests and len(enabled_providers) > 1:
-            responses = self._chat_parallel(full_message, enabled_providers)
-        else:
-            responses = self._chat_sequential(full_message, enabled_providers)
-        
-        return responses
+        return response
     
     def _get_enabled_providers(self):
         """Get list of enabled providers in priority order"""

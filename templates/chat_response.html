@@ -8,47 +8,38 @@
     <a href="/" class="btn btn-secondary" style="margin-top: 1rem;">Send Another Message</a>
 </div>
 
-<h3>LLM Responses</h3>
-
-<div class="response-grid">
-    {% for provider, response in responses.items() %}
-        <div class="card response-card {{ provider }}">
-            <h4>{{ provider|title }}</h4>
-            
-            {% if settings.response_settings.show_metadata %}
-                <div class="response-meta">
-                    <strong>Model:</strong> {{ response.model if response.model else settings.models[provider] }}
-                    {% if response.success %}
-                        | <strong>Latency:</strong> {{ response.latency }}ms
-                        {% if response.tokens %}
-                            | <strong>Tokens:</strong> {{ response.tokens.total }}
-                        {% endif %}
-                    {% endif %}
-                </div>
+<div class="card response-card {{ response.provider if response.provider }}">
+    <h3>{{ response.provider|title if response.provider else "AI" }} Response</h3>
+    
+    {% if settings.response_settings.show_metadata %}
+        <div class="response-meta">
+            <strong>Provider:</strong> {{ response.provider|title if response.provider }}
+            {% if response.model %}
+                | <strong>Model:</strong> {{ response.model }}
             {% endif %}
-            
-            <div class="response-content">
-                {{ response.response }}
-            </div>
-            
-            {% if settings.cost_management.show_cost_estimates and response.estimated_cost %}
-                <div class="cost-info">
-                    Estimated cost: ${{ "%.4f"|format(response.estimated_cost) }}
-                </div>
+            {% if response.success and response.latency %}
+                | <strong>Latency:</strong> {{ response.latency }}ms
             {% endif %}
-            
-            {% if not response.success %}
-                <div class="alert alert-error" style="margin-top: 0.5rem;">
-                    Request failed
-                </div>
+            {% if response.tokens %}
+                | <strong>Tokens:</strong> {{ response.tokens.total }}
             {% endif %}
         </div>
-    {% endfor %}
-</div>
-
-{% if not responses %}
-    <div class="alert alert-error">
-        No responses received. Please check your settings and API keys.
+    {% endif %}
+    
+    <div class="response-content">
+        {{ response.response }}
     </div>
-{% endif %}
+    
+    {% if settings.cost_management.show_cost_estimates and response.estimated_cost %}
+        <div class="cost-info">
+            Estimated cost: ${{ "%.4f"|format(response.estimated_cost) }}
+        </div>
+    {% endif %}
+    
+    {% if not response.success %}
+        <div class="alert alert-error" style="margin-top: 0.5rem;">
+            Request failed: {{ response.response }}
+        </div>
+    {% endif %}
+</div>
 {% endblock %}

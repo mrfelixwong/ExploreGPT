@@ -2,8 +2,8 @@
 
 {% block content %}
 <div class="card">
-    <h2>Multi-LLM Chat Interface</h2>
-    <p>Chat with OpenAI, Anthropic, and Google simultaneously. Your messages will be sent to all enabled providers.</p>
+    <h2>AI Chat Interface</h2>
+    <p>Chat with your selected AI provider: <strong>{{ settings.ui_settings.selected_provider|title }}</strong></p>
     
     <form method="POST" action="/chat">
         <div class="form-group">
@@ -11,7 +11,7 @@
             <textarea name="message" id="message" rows="4" placeholder="Type your message here..." required></textarea>
         </div>
         
-        <button type="submit" class="btn">Send to All LLMs</button>
+        <button type="submit" class="btn">Send Message</button>
     </form>
 </div>
 
@@ -19,14 +19,9 @@
     <h3>Current Configuration</h3>
     <div class="grid">
         <div>
-            <h4>Enabled Providers:</h4>
-            <ul>
-                {% for provider, config in settings.provider_settings.items() %}
-                    {% if config.enabled %}
-                        <li>{{ provider|title }} (Priority: {{ config.priority }})</li>
-                    {% endif %}
-                {% endfor %}
-            </ul>
+            <h4>Selected Provider:</h4>
+            <p>{{ settings.ui_settings.selected_provider|title }}</p>
+            <p><em>Change in Settings to use a different AI provider</em></p>
         </div>
         
         <div>
@@ -34,20 +29,20 @@
             <ul>
                 <li>Max Tokens: {{ settings.response_settings.max_tokens }}</li>
                 <li>Temperature: {{ settings.response_settings.temperature }}</li>
-                <li>Parallel Requests: {{ "Yes" if settings.response_settings.parallel_requests else "No" }}</li>
                 <li>Cost Tracking: {{ "Yes" if settings.cost_management.track_costs else "No" }}</li>
+                <li>Memory Learning: {{ "Yes" if settings.memory_settings.auto_learning else "No" }}</li>
             </ul>
         </div>
     </div>
 </div>
 
 <div class="card">
-    <h3>Usage Instructions</h3>
+    <h3>Features</h3>
     <ul>
-        <li><strong>Multi-LLM Responses:</strong> Each enabled provider will respond to your message</li>
-        <li><strong>Memory System:</strong> The system learns from your conversations (if enabled)</li>
+        <li><strong>Provider Selection:</strong> Choose your preferred AI provider in Settings</li>
+        <li><strong>Smart Memory:</strong> The system learns from your conversations (if enabled)</li>
         <li><strong>Cost Tracking:</strong> Monitor API usage costs in real-time</li>
-        <li><strong>Customizable:</strong> Adjust models, settings, and preferences in Settings</li>
+        <li><strong>Customizable:</strong> Adjust models, settings, and preferences</li>
     </ul>
 </div>
 {% endblock %}

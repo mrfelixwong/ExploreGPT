@@ -35,10 +35,10 @@ class SettingsManager:
             },
             'ui_settings': {
                 'theme': 'light',
-                'layout': 'grid',
+                'layout': 'single',
                 'font_size': 'medium',
                 'auto_scroll': True,
-                'response_order': ['openai', 'anthropic', 'google'],
+                'selected_provider': 'openai',
                 'show_timestamps': True
             },
             'cost_management': {

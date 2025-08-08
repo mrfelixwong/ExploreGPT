@@ -66,19 +66,19 @@ def chat():
     # Get relevant context from memory
     context = get_relevant_context(user_message)
     
-    # Send to LLMs
-    responses = orchestrator.chat_with_all(user_message, context)
+    # Send to selected LLM
+    response = orchestrator.chat_single(user_message, context)
     
     # Store conversation
-    store_conversation(user_message, responses, context)
+    store_conversation(user_message, response, context)
     
     # Extract and store user facts
-    extract_user_facts(user_message, responses)
+    extract_user_facts(user_message, response)
     
     ui_classes = settings_manager.get_ui_classes(current_settings)
     return render_template('chat_response.html', 
                          user_message=user_message, 
-                         responses=responses,
+                         response=response,
                          settings=current_settings,
                          ui_classes=ui_classes)
 
@@ -158,9 +158,10 @@ def update_settings():
     # UI settings
     new_settings['ui_settings'] = {
         'theme': request.form.get('theme', 'light'),
-        'layout': request.form.get('layout', 'grid'),
+        'layout': 'single',  # Always single now
         'font_size': request.form.get('font_size', 'medium'),
         'auto_scroll': 'auto_scroll' in request.form,
+        'selected_provider': request.form.get('selected_provider', 'openai'),
         'show_timestamps': 'show_timestamps' in request.form
     }
     
@@ -233,24 +234,24 @@ def get_relevant_context(message, limit=5):
     conn.close()
     return list(set(context))[:limit]  # Remove duplicates and limit
 
-def store_conversation(user_message, responses, context):
+def store_conversation(user_message, response, context):
     """Store conversation in memory"""
     conn = sqlite3.connect('memory.db')
     cursor = conn.cursor()
     
     timestamp = datetime.now().isoformat()
-    responses_json = json.dumps(responses)
+    response_json = json.dumps(response)
     context_json = json.dumps(context) if context else None
     
     cursor.execute('''
         INSERT INTO conversations (timestamp, user_message, responses, context)
         VALUES (?, ?, ?, ?)
-    ''', (timestamp, user_message, responses_json, context_json))
+    ''', (timestamp, user_message, response_json, context_json))
     
     conn.commit()
     conn.close()
 
-def extract_user_facts(user_message, responses):
+def extract_user_facts(user_message, response):
     """Extract and store user facts from the conversation"""
     if not current_settings.get('memory_settings', {}).get('auto_learning', False):
         return
