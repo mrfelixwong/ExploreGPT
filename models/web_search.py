@@ -4,6 +4,7 @@ import json
 from typing import List, Dict, Optional
 from bs4 import BeautifulSoup
 import time
+from .debug_logger import get_debugger
 
 class SearchResult:
     """Represents a single search result"""
@@ -250,22 +251,90 @@ class WebSearchManager:
     
     def search(self, query: str, count: int = 5, extract_content: bool = False) -> List[SearchResult]:
         """Search using available providers with fallback"""
+        search_start_time = time.time()
+        original_query = query
         query = self.intent_detector.extract_query(query)
+        debugger = get_debugger()
+        
+        debugger.log_user_action("web_search_initiated", {
+            "original_query": original_query,
+            "processed_query": query,
+            "count": count,
+            "extract_content": extract_content
+        })
         
         for provider in self.providers:
+            provider_start_time = time.time()
+            provider_name = provider.__class__.__name__
+            
             try:
                 results = provider.search(query, count)
+                provider_duration_ms = round((time.time() - provider_start_time) * 1000, 2)
+                
                 if results:
+                    # Log successful search
+                    debugger.log_search_activity(
+                        query=query,
+                        provider=provider_name,
+                        results_count=len(results),
+                        duration_ms=provider_duration_ms,
+                        success=True
+                    )
+                    
                     # Extract content if requested
                     if extract_content:
                         for result in results:
                             result.content = self.result_processor.extract_content(result)
                     
+                    # Log overall search completion
+                    total_duration_ms = round((time.time() - search_start_time) * 1000, 2)
+                    debugger.log_debug("web_search_complete", {
+                        "query": query,
+                        "results_count": len(results),
+                        "total_duration_ms": total_duration_ms,
+                        "successful_provider": provider_name,
+                        "content_extracted": extract_content
+                    })
+                    
                     return results
+                else:
+                    # Log failed search attempt
+                    debugger.log_search_activity(
+                        query=query,
+                        provider=provider_name,
+                        results_count=0,
+                        duration_ms=provider_duration_ms,
+                        success=False,
+                        error="No results returned"
+                    )
                     
             except Exception as e:
-                print(f"Search provider failed: {e}")
+                error_msg = str(e)
+                provider_duration_ms = round((time.time() - provider_start_time) * 1000, 2)
+                
+                # Log search provider error
+                debugger.log_search_activity(
+                    query=query,
+                    provider=provider_name,
+                    results_count=0,
+                    duration_ms=provider_duration_ms,
+                    success=False,
+                    error=error_msg
+                )
+                
+                debugger.log_error("search_provider_error", error_msg, {
+                    "provider": provider_name,
+                    "query": query
+                })
                 continue
+        
+        # No providers succeeded
+        total_duration_ms = round((time.time() - search_start_time) * 1000, 2)
+        debugger.log_debug("web_search_failed", {
+            "query": query,
+            "total_duration_ms": total_duration_ms,
+            "providers_tried": len(self.providers)
+        }, level="warning")
         
         return []
     

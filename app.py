@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, redirect, url_for, jsonify, s
 from models.settings import settings_manager
 from models.llm_clients import LLMOrchestrator
 from models.cost_tracker import cost_tracker
+from models.debug_logger import get_debugger, is_claude_debug_enabled, debug_log, debug_error
 import sqlite3
 import json
 from datetime import datetime
@@ -68,6 +69,14 @@ def index():
     if 'session_id' not in session:
         session['session_id'] = str(uuid.uuid4())
     
+    # Initialize debugger for this session
+    debugger = get_debugger(session['session_id'])
+    debugger.log_user_action("page_load", {
+        "page": "index",
+        "session_id": session['session_id'],
+        "claude_debug_mode": is_claude_debug_enabled()
+    })
+    
     # Load conversation history for this session
     conversation = get_session_conversation(session['session_id'])
     
@@ -90,7 +99,8 @@ def chat():
     # Get relevant context from memory
     context = get_relevant_context(user_message)
     
-    # Send to selected LLM
+    # Set session ID in orchestrator and send to selected LLM
+    orchestrator.set_session_id(session['session_id'])
     response = orchestrator.chat_single(user_message, context)
     
     # Store conversation with session ID
@@ -121,6 +131,16 @@ def stream_chat():
     
     def generate():
         try:
+            # Set session ID in orchestrator for debugging
+            orchestrator.set_session_id(session['session_id'])
+            debugger = get_debugger(session['session_id'])
+            
+            # Log streaming chat initiation
+            debugger.log_user_action("streaming_chat_initiated", {
+                "session_id": session['session_id'],
+                "message_length": len(user_message)
+            })
+            
             # Send typing indicator
             yield "data: " + json.dumps({'type': 'typing', 'message': 'AI is thinking...'}) + "\n\n"
             
@@ -152,11 +172,25 @@ def stream_chat():
             store_conversation(user_message, complete_response, context, session['session_id'])
             extract_user_facts(user_message, complete_response)
             
+            # Log successful streaming completion
+            debugger.log_debug("streaming_chat_complete", {
+                "session_id": session['session_id'],
+                "response_length": len(full_response_text),
+                "provider": response_metadata.get('provider'),
+                "latency": response_metadata.get('latency', 0)
+            })
+            
             # Send final complete signal
             yield "data: " + json.dumps({'type': 'complete'}) + "\n\n"
             
         except Exception as e:
-            yield "data: " + json.dumps({'type': 'error', 'message': str(e)}) + "\n\n"
+            error_msg = str(e)
+            # Log streaming error
+            debugger.log_error("streaming_chat_error", error_msg, {
+                "session_id": session['session_id'],
+                "message_length": len(user_message)
+            })
+            yield "data: " + json.dumps({'type': 'error', 'message': error_msg}) + "\n\n"
     
     return Response(generate(), mimetype='text/plain')
 
@@ -393,8 +427,90 @@ def extract_user_facts(user_message, response):
         conn.commit()
         conn.close()
 
+# Debug endpoints for Claude Code assistance
+@app.route('/debug/status')
+def debug_status():
+    """System health check endpoint"""
+    if not is_claude_debug_enabled():
+        return jsonify({"error": "Debug mode not enabled. Set CLAUDE_DEBUG=1"}), 403
+    
+    debugger = get_debugger()
+    status = {
+        "status": "healthy",
+        "claude_debug_enabled": True,
+        "session_summary": debugger.get_session_summary(),
+        "providers": {
+            "openai": "openai" in orchestrator.clients,
+            "anthropic": "anthropic" in orchestrator.clients,
+            "google": "google" in orchestrator.clients
+        },
+        "settings": {
+            "selected_provider": current_settings.get('ui_settings', {}).get('selected_provider'),
+            "cost_tracking": current_settings.get('cost_management', {}).get('track_costs', False),
+        }
+    }
+    return jsonify(status)
+
+@app.route('/debug/logs')
+def debug_logs():
+    """Recent log entries for debugging"""
+    if not is_claude_debug_enabled():
+        return jsonify({"error": "Debug mode not enabled. Set CLAUDE_DEBUG=1"}), 403
+    
+    try:
+        log_file = "/tmp/exploregpt_logs/exploregpt_debug.log"
+        if not os.path.exists(log_file):
+            return jsonify({"logs": [], "message": "No log file found"})
+        
+        # Get last 50 lines of log file
+        with open(log_file, 'r') as f:
+            lines = f.readlines()[-50:]
+        
+        # Parse JSON log entries
+        parsed_logs = []
+        for line in lines:
+            try:
+                # Extract JSON from log line (remove timestamp prefix)
+                if ' - {' in line:
+                    json_part = line.split(' - ', 1)[1].strip()
+                    log_entry = json.loads(json_part)
+                    parsed_logs.append(log_entry)
+            except json.JSONDecodeError:
+                continue
+        
+        return jsonify({"logs": parsed_logs, "count": len(parsed_logs)})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/debug/session')
+def debug_session_state():
+    """Current session state for debugging"""
+    if not is_claude_debug_enabled():
+        return jsonify({"error": "Debug mode not enabled. Set CLAUDE_DEBUG=1"}), 403
+    
+    session_id = session.get('session_id', 'no_session')
+    debugger = get_debugger(session_id)
+    
+    state = {
+        "session_id": session_id,
+        "debug_snapshot": debugger.create_debug_snapshot(),
+        "conversation_count": len(get_session_conversation(session_id)) if session_id != 'no_session' else 0,
+        "flask_session": dict(session),
+        "settings_summary": {
+            "provider": current_settings.get('ui_settings', {}).get('selected_provider'),
+            "theme": current_settings.get('ui_settings', {}).get('theme'),
+            "cost_tracking": current_settings.get('cost_management', {}).get('track_costs')
+        }
+    }
+    
+    return jsonify(state)
+
 if __name__ == '__main__':
     print("🚀 Starting FelixGPT...")
+    if is_claude_debug_enabled():
+        print("🐛 Claude Debug Mode: ENABLED")
+        print("   - Detailed logging to /tmp/exploregpt_logs/")
+        print("   - Debug endpoints available at /debug/*")
     print("✅ OpenAI API: Ready")
     print("✅ Google API: Ready") 
     print("⚠️  Anthropic API: Disabled (library issue)")

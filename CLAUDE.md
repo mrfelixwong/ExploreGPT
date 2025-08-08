@@ -57,7 +57,34 @@ python test_working_apis.py
 
 # Check environment variables
 python start.py  # Will show missing vars
+
+# Test debug system
+python test_debug_system.py
+
+# Enable Claude debug mode for enhanced logging
+export CLAUDE_DEBUG=1
+python test_debug_system.py
 ```
+
+### Claude Code Integration
+
+#### Debug Mode
+- Set `CLAUDE_DEBUG=1` environment variable for enhanced debugging
+- Logs to `/tmp/exploregpt_logs/exploregpt_debug.log`
+- Structured JSON logging for all API calls, search queries, and errors
+- Debug UI available in Settings → Debug Information section
+
+#### Debug Endpoints
+- `/debug/status` - System health check (requires CLAUDE_DEBUG=1)
+- `/debug/logs` - Recent log entries in JSON format
+- `/debug/session` - Current session state and debug snapshot
+
+#### Logging Coverage
+- **API Calls**: All LLM provider interactions (OpenAI, Anthropic, Google)
+- **Web Search**: Query processing, provider fallback, result counts
+- **Streaming**: Real-time response chunking and performance metrics
+- **User Actions**: Page loads, settings changes, session management
+- **Errors**: Full context with stack traces when debug enabled
 
 ## Production Considerations
 - Change `SECRET_KEY` from development default

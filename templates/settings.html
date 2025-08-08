@@ -261,4 +261,135 @@
         </div>
     </div>
 {% endif %}
+
+<!-- Debug Information (Claude Code Integration) -->
+<div class="card" style="margin-top: 2rem;">
+    <h3>🐛 Debug Information</h3>
+    <div id="debug-info">
+        <div class="grid">
+            <div>
+                <h4>Claude Debug Mode</h4>
+                <p id="debug-status">
+                    <span id="debug-indicator">Checking...</span>
+                </p>
+                <p style="font-size: 0.9em; color: #666;">
+                    Set <code>CLAUDE_DEBUG=1</code> environment variable for enhanced debugging
+                </p>
+            </div>
+            <div>
+                <h4>Debug Actions</h4>
+                <button type="button" class="btn btn-secondary" onclick="checkDebugStatus()" style="margin-right: 0.5rem;">
+                    Check Status
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="showRecentLogs()" style="margin-right: 0.5rem;">
+                    View Logs
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="showSessionInfo()">
+                    Session Info
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Debug Output Area -->
+    <div id="debug-output" style="margin-top: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 6px; display: none; max-height: 400px; overflow-y: auto;">
+        <pre id="debug-content" style="margin: 0; white-space: pre-wrap; font-size: 0.8em;"></pre>
+    </div>
+</div>
+
+<script>
+// Debug functionality for Claude Code integration
+let debugEnabled = false;
+
+async function checkDebugStatus() {
+    try {
+        const response = await fetch('/debug/status');
+        const data = await response.json();
+        
+        const indicator = document.getElementById('debug-indicator');
+        const output = document.getElementById('debug-output');
+        const content = document.getElementById('debug-content');
+        
+        if (response.ok) {
+            debugEnabled = true;
+            indicator.innerHTML = '🟢 <strong>ENABLED</strong> - Enhanced logging active';
+            indicator.style.color = '#059669';
+            
+            content.textContent = JSON.stringify(data, null, 2);
+            output.style.display = 'block';
+        } else {
+            debugEnabled = false;
+            indicator.innerHTML = '🔴 <strong>DISABLED</strong> - ' + (data.error || 'Not available');
+            indicator.style.color = '#dc2626';
+            output.style.display = 'none';
+        }
+    } catch (error) {
+        document.getElementById('debug-indicator').innerHTML = '❌ <strong>ERROR</strong> - ' + error.message;
+        document.getElementById('debug-indicator').style.color = '#dc2626';
+    }
+}
+
+async function showRecentLogs() {
+    if (!debugEnabled) {
+        alert('Debug mode is not enabled. Set CLAUDE_DEBUG=1 environment variable.');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/debug/logs');
+        const data = await response.json();
+        
+        const output = document.getElementById('debug-output');
+        const content = document.getElementById('debug-content');
+        
+        if (response.ok) {
+            const formattedLogs = data.logs.map(log => {
+                const timestamp = new Date(log.timestamp).toLocaleTimeString();
+                return `[${timestamp}] ${log.event_type.toUpperCase()}: ${JSON.stringify(log.data, null, 2)}`;
+            }).join('\n\n');
+            
+            content.textContent = formattedLogs || 'No logs available';
+            output.style.display = 'block';
+        } else {
+            content.textContent = 'Error loading logs: ' + (data.error || 'Unknown error');
+            output.style.display = 'block';
+        }
+    } catch (error) {
+        document.getElementById('debug-content').textContent = 'Error: ' + error.message;
+        document.getElementById('debug-output').style.display = 'block';
+    }
+}
+
+async function showSessionInfo() {
+    if (!debugEnabled) {
+        alert('Debug mode is not enabled. Set CLAUDE_DEBUG=1 environment variable.');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/debug/session');
+        const data = await response.json();
+        
+        const output = document.getElementById('debug-output');
+        const content = document.getElementById('debug-content');
+        
+        if (response.ok) {
+            content.textContent = JSON.stringify(data, null, 2);
+            output.style.display = 'block';
+        } else {
+            content.textContent = 'Error loading session info: ' + (data.error || 'Unknown error');
+            output.style.display = 'block';
+        }
+    } catch (error) {
+        document.getElementById('debug-content').textContent = 'Error: ' + error.message;
+        document.getElementById('debug-output').style.display = 'block';
+    }
+}
+
+// Check debug status on page load
+document.addEventListener('DOMContentLoaded', function() {
+    checkDebugStatus();
+});
+</script>
+
 {% endblock %}
