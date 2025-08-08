@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FelixGPT - Multi-LLM Chat</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        /* Light Theme (Default) */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f5f5;
+            transition: background 0.3s ease, color 0.3s ease;
+        }
+        
+        /* Dark Theme */
+        body.theme-dark {
+            color: #e5e7eb;
+            background: #111827;
+        }
+        
+        body.theme-dark .header {
+            background: #1f2937;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        body.theme-dark .nav h1 {
+            color: #60a5fa;
+        }
+        
+        body.theme-dark .nav a {
+            color: #d1d5db;
+        }
+        
+        body.theme-dark .nav a:hover {
+            background: #374151;
+        }
+        
+        body.theme-dark .nav a.active {
+            background: #3b82f6;
+            color: white;
+        }
+        
+        body.theme-dark .card {
+            background: #1f2937;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        
+        body.theme-dark .btn {
+            background: #3b82f6;
+        }
+        
+        body.theme-dark .btn:hover {
+            background: #2563eb;
+        }
+        
+        body.theme-dark .btn-secondary {
+            background: #6b7280;
+        }
+        
+        body.theme-dark .btn-secondary:hover {
+            background: #4b5563;
+        }
+        
+        body.theme-dark .form-group input,
+        body.theme-dark .form-group select,
+        body.theme-dark .form-group textarea {
+            background: #374151;
+            border: 1px solid #4b5563;
+            color: #e5e7eb;
+        }
+        
+        body.theme-dark .form-group input:focus,
+        body.theme-dark .form-group select:focus,
+        body.theme-dark .form-group textarea:focus {
+            border-color: #60a5fa;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1);
+        }
+        
+        body.theme-dark .alert-success {
+            background: #065f46;
+            color: #d1fae5;
+            border: 1px solid #047857;
+        }
+        
+        body.theme-dark .alert-error {
+            background: #7f1d1d;
+            color: #fecaca;
+            border: 1px solid #dc2626;
+        }
+        
+        body.theme-dark .response-card {
+            background: #1f2937;
+            border-left: 4px solid #3b82f6;
+        }
+        
+        body.theme-dark .response-card.openai {
+            border-left-color: #10b981;
+        }
+        
+        body.theme-dark .response-card.anthropic {
+            border-left-color: #f59e0b;
+        }
+        
+        body.theme-dark .response-card.google {
+            border-left-color: #3b82f6;
+        }
+        
+        body.theme-dark .response-meta,
+        body.theme-dark .cost-info {
+            color: #9ca3af;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            background: white;
+            padding: 1rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+        
+        .nav {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+        
+        .nav h1 {
+            color: #2563eb;
+            margin-right: auto;
+        }
+        
+        .nav a {
+            color: #666;
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+        
+        .nav a:hover {
+            background: #f3f4f6;
+        }
+        
+        .nav a.active {
+            background: #2563eb;
+            color: white;
+        }
+        
+        .btn {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background 0.2s;
+        }
+        
+        .btn:hover {
+            background: #1d4ed8;
+        }
+        
+        .btn-secondary {
+            background: #6b7280;
+        }
+        
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
+        
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.25rem;
+            font-weight: 500;
+        }
+        
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+        
+        .form-group input[type="checkbox"] {
+            width: auto;
+            margin-right: 0.5rem;
+        }
+        
+        .card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 1rem;
+        }
+        
+        .grid {
+            display: grid;
+            gap: 1rem;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        }
+        
+        .alert {
+            padding: 1rem;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+        }
+        
+        .alert-success {
+            background: #dcfce7;
+            color: #166534;
+            border: 1px solid #bbf7d0;
+        }
+        
+        .alert-error {
+            background: #fee2e2;
+            color: #dc2626;
+            border: 1px solid #fecaca;
+        }
+        
+        .response-grid {
+            display: grid;
+            gap: 1rem;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+        }
+        
+        .response-card {
+            border-left: 4px solid #2563eb;
+        }
+        
+        .response-card.openai {
+            border-left-color: #059669;
+        }
+        
+        .response-card.anthropic {
+            border-left-color: #dc2626;
+        }
+        
+        .response-card.google {
+            border-left-color: #2563eb;
+        }
+        
+        .response-meta {
+            font-size: 0.875rem;
+            color: #666;
+            margin-bottom: 0.5rem;
+        }
+        
+        .response-content {
+            white-space: pre-wrap;
+            line-height: 1.6;
+        }
+        
+        .cost-info {
+            font-size: 0.75rem;
+            color: #666;
+            margin-top: 0.5rem;
+        }
+    </style>
+</head>
+<body class="{{ ui_classes.theme_class if ui_classes else 'theme-light' }}">
+    <div class="header">
+        <nav class="nav">
+            <h1>FelixGPT</h1>
+            <a href="/" {% if request.endpoint == 'index' %}class="active"{% endif %}>Chat</a>
+            <a href="/settings" {% if request.endpoint == 'settings_page' %}class="active"{% endif %}>Settings</a>
+            <a href="/memory" {% if request.endpoint == 'memory_page' %}class="active"{% endif %}>Memory</a>
+        </nav>
+    </div>
+    
+    <div class="container">
+        {% if session.message %}
+            <div class="alert alert-success">
+                {{ session.message }}
+                {% set _ = session.pop('message') %}
+            </div>
+        {% endif %}
+        
+        {% block content %}{% endblock %}
+    </div>
+</body>
+</html>

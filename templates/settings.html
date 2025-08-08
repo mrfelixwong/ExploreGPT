@@ -1,0 +1,262 @@
+{% extends "base.html" %}
+
+{% block content %}
+<form method="POST">
+    <div class="grid">
+        <!-- Model Configuration -->
+        <div class="card">
+            <h3>Model Configuration</h3>
+            
+            <div class="form-group">
+                <label for="openai_model">OpenAI Model:</label>
+                <select name="openai_model" id="openai_model">
+                    <option value="gpt-4" {% if settings.models.openai == 'gpt-4' %}selected{% endif %}>GPT-4</option>
+                    <option value="gpt-3.5-turbo" {% if settings.models.openai == 'gpt-3.5-turbo' %}selected{% endif %}>GPT-3.5 Turbo</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="anthropic_model">Anthropic Model:</label>
+                <select name="anthropic_model" id="anthropic_model">
+                    <option value="claude-3-sonnet-20240229" {% if settings.models.anthropic == 'claude-3-sonnet-20240229' %}selected{% endif %}>Claude 3 Sonnet</option>
+                    <option value="claude-3-haiku-20240307" {% if settings.models.anthropic == 'claude-3-haiku-20240307' %}selected{% endif %}>Claude 3 Haiku</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="google_model">Google Model:</label>
+                <select name="google_model" id="google_model">
+                    <option value="gemini-pro" {% if settings.models.google == 'gemini-pro' %}selected{% endif %}>Gemini Pro</option>
+                </select>
+            </div>
+        </div>
+        
+        <!-- Provider Settings -->
+        <div class="card">
+            <h3>Provider Settings</h3>
+            
+            {% for provider in ['openai', 'anthropic', 'google'] %}
+                <h4>{{ provider|title }}</h4>
+                
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" name="{{ provider }}_enabled" 
+                               {% if settings.provider_settings[provider].enabled %}checked{% endif %}>
+                        Enabled
+                    </label>
+                </div>
+                
+                <div class="form-group">
+                    <label for="{{ provider }}_priority">Priority (1 = highest):</label>
+                    <input type="number" name="{{ provider }}_priority" id="{{ provider }}_priority"
+                           value="{{ settings.provider_settings[provider].priority }}" min="1" max="10">
+                </div>
+                
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" name="{{ provider }}_fallback"
+                               {% if settings.provider_settings[provider].fallback %}checked{% endif %}>
+                        Use as fallback
+                    </label>
+                </div>
+            {% endfor %}
+        </div>
+        
+        <!-- Response Settings -->
+        <div class="card">
+            <h3>Response Settings</h3>
+            
+            <div class="form-group">
+                <label for="max_tokens">Max Tokens:</label>
+                <input type="number" name="max_tokens" id="max_tokens" 
+                       value="{{ settings.response_settings.max_tokens }}" min="100" max="4000">
+            </div>
+            
+            <div class="form-group">
+                <label for="timeout">Timeout (seconds):</label>
+                <input type="number" name="timeout" id="timeout" 
+                       value="{{ settings.response_settings.timeout }}" min="10" max="120">
+            </div>
+            
+            <div class="form-group">
+                <label for="temperature">Temperature:</label>
+                <input type="number" name="temperature" id="temperature" step="0.1"
+                       value="{{ settings.response_settings.temperature }}" min="0" max="2">
+            </div>
+            
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="parallel_requests"
+                           {% if settings.response_settings.parallel_requests %}checked{% endif %}>
+                    Send requests in parallel
+                </label>
+            </div>
+            
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="show_metadata"
+                           {% if settings.response_settings.show_metadata %}checked{% endif %}>
+                    Show response metadata
+                </label>
+            </div>
+        </div>
+        
+        <!-- Memory Settings -->
+        <div class="card">
+            <h3>Memory Settings</h3>
+            
+            <div class="form-group">
+                <label for="context_count">Context items to include:</label>
+                <input type="number" name="context_count" id="context_count" 
+                       value="{{ settings.memory_settings.context_count }}" min="0" max="20">
+            </div>
+            
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="auto_learning"
+                           {% if settings.memory_settings.auto_learning %}checked{% endif %}>
+                    Enable auto-learning from conversations
+                </label>
+            </div>
+            
+            <div class="form-group">
+                <label for="retention_days">Retention (days):</label>
+                <input type="number" name="retention_days" id="retention_days" 
+                       value="{{ settings.memory_settings.retention_days }}" min="1" max="365">
+            </div>
+            
+            <h4>Memory Types</h4>
+            {% for memory_type, enabled in settings.memory_settings.memory_types.items() %}
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" name="memory_{{ memory_type }}"
+                               {% if enabled %}checked{% endif %}>
+                        {{ memory_type.replace('_', ' ')|title }}
+                    </label>
+                </div>
+            {% endfor %}
+        </div>
+        
+        <!-- Cost Management -->
+        <div class="card">
+            <h3>Cost Management</h3>
+            
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="track_costs"
+                           {% if settings.cost_management.track_costs %}checked{% endif %}>
+                    Enable cost tracking
+                </label>
+            </div>
+            
+            <div class="form-group">
+                <label for="daily_budget">Daily Budget ($):</label>
+                <input type="number" name="daily_budget" id="daily_budget" step="0.01"
+                       value="{{ settings.cost_management.daily_budget }}">
+            </div>
+            
+            <div class="form-group">
+                <label for="monthly_budget">Monthly Budget ($):</label>
+                <input type="number" name="monthly_budget" id="monthly_budget" step="0.01"
+                       value="{{ settings.cost_management.monthly_budget }}">
+            </div>
+            
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="show_cost_estimates"
+                           {% if settings.cost_management.show_cost_estimates %}checked{% endif %}>
+                    Show cost estimates
+                </label>
+            </div>
+            
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="smart_routing"
+                           {% if settings.cost_management.smart_routing %}checked{% endif %}>
+                    Smart routing (stop at first good response)
+                </label>
+            </div>
+        </div>
+        
+        <!-- UI Settings -->
+        <div class="card">
+            <h3>UI Settings</h3>
+            
+            <div class="form-group">
+                <label for="theme">Theme:</label>
+                <select name="theme" id="theme">
+                    <option value="light" {% if settings.ui_settings.theme == 'light' %}selected{% endif %}>Light</option>
+                    <option value="dark" {% if settings.ui_settings.theme == 'dark' %}selected{% endif %}>Dark</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="layout">Layout:</label>
+                <select name="layout" id="layout">
+                    <option value="grid" {% if settings.ui_settings.layout == 'grid' %}selected{% endif %}>Grid</option>
+                    <option value="vertical" {% if settings.ui_settings.layout == 'vertical' %}selected{% endif %}>Vertical</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="font_size">Font Size:</label>
+                <select name="font_size" id="font_size">
+                    <option value="small" {% if settings.ui_settings.font_size == 'small' %}selected{% endif %}>Small</option>
+                    <option value="medium" {% if settings.ui_settings.font_size == 'medium' %}selected{% endif %}>Medium</option>
+                    <option value="large" {% if settings.ui_settings.font_size == 'large' %}selected{% endif %}>Large</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="auto_scroll"
+                           {% if settings.ui_settings.auto_scroll %}checked{% endif %}>
+                    Auto-scroll to new responses
+                </label>
+            </div>
+            
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="show_timestamps"
+                           {% if settings.ui_settings.show_timestamps %}checked{% endif %}>
+                    Show timestamps
+                </label>
+            </div>
+        </div>
+    </div>
+    
+    <button type="submit" class="btn">Save Settings</button>
+</form>
+
+<!-- Cost Summary -->
+{% if settings.cost_management.track_costs %}
+    <div class="card" style="margin-top: 2rem;">
+        <h3>Cost Summary</h3>
+        <div class="grid">
+            <div>
+                <h4>Today: ${{ "%.4f"|format(cost_summary.today.total) }}</h4>
+                {% if cost_summary.today.by_provider %}
+                    <ul>
+                        {% for provider, cost in cost_summary.today.by_provider.items() %}
+                            <li>{{ provider|title }}: ${{ "%.4f"|format(cost) }}</li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+            </div>
+            <div>
+                <h4>This Month: ${{ "%.4f"|format(cost_summary.this_month.total) }}</h4>
+                {% if cost_summary.this_month.by_provider %}
+                    <ul>
+                        {% for provider, cost in cost_summary.this_month.by_provider.items() %}
+                            <li>{{ provider|title }}: ${{ "%.4f"|format(cost) }}</li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+            </div>
+            <div>
+                <h4>All Time: ${{ "%.4f"|format(cost_summary.all_time.total) }}</h4>
+            </div>
+        </div>
+    </div>
+{% endif %}
+{% endblock %}

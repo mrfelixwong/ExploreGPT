@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+    <h2>Multi-LLM Chat Interface</h2>
+    <p>Chat with OpenAI, Anthropic, and Google simultaneously. Your messages will be sent to all enabled providers.</p>
+    
+    <form method="POST" action="/chat">
+        <div class="form-group">
+            <label for="message">Your Message:</label>
+            <textarea name="message" id="message" rows="4" placeholder="Type your message here..." required></textarea>
+        </div>
+        
+        <button type="submit" class="btn">Send to All LLMs</button>
+    </form>
+</div>
+
+<div class="card">
+    <h3>Current Configuration</h3>
+    <div class="grid">
+        <div>
+            <h4>Enabled Providers:</h4>
+            <ul>
+                {% for provider, config in settings.provider_settings.items() %}
+                    {% if config.enabled %}
+                        <li>{{ provider|title }} (Priority: {{ config.priority }})</li>
+                    {% endif %}
+                {% endfor %}
+            </ul>
+        </div>
+        
+        <div>
+            <h4>Settings Summary:</h4>
+            <ul>
+                <li>Max Tokens: {{ settings.response_settings.max_tokens }}</li>
+                <li>Temperature: {{ settings.response_settings.temperature }}</li>
+                <li>Parallel Requests: {{ "Yes" if settings.response_settings.parallel_requests else "No" }}</li>
+                <li>Cost Tracking: {{ "Yes" if settings.cost_management.track_costs else "No" }}</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h3>Usage Instructions</h3>
+    <ul>
+        <li><strong>Multi-LLM Responses:</strong> Each enabled provider will respond to your message</li>
+        <li><strong>Memory System:</strong> The system learns from your conversations (if enabled)</li>
+        <li><strong>Cost Tracking:</strong> Monitor API usage costs in real-time</li>
+        <li><strong>Customizable:</strong> Adjust models, settings, and preferences in Settings</li>
+    </ul>
+</div>
+{% endblock %}

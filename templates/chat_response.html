@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+    <h3>Your Message</h3>
+    <p class="response-content">{{ user_message }}</p>
+    
+    <a href="/" class="btn btn-secondary" style="margin-top: 1rem;">Send Another Message</a>
+</div>
+
+<h3>LLM Responses</h3>
+
+<div class="response-grid">
+    {% for provider, response in responses.items() %}
+        <div class="card response-card {{ provider }}">
+            <h4>{{ provider|title }}</h4>
+            
+            {% if settings.response_settings.show_metadata %}
+                <div class="response-meta">
+                    <strong>Model:</strong> {{ response.model if response.model else settings.models[provider] }}
+                    {% if response.success %}
+                        | <strong>Latency:</strong> {{ response.latency }}ms
+                        {% if response.tokens %}
+                            | <strong>Tokens:</strong> {{ response.tokens.total }}
+                        {% endif %}
+                    {% endif %}
+                </div>
+            {% endif %}
+            
+            <div class="response-content">
+                {{ response.response }}
+            </div>
+            
+            {% if settings.cost_management.show_cost_estimates and response.estimated_cost %}
+                <div class="cost-info">
+                    Estimated cost: ${{ "%.4f"|format(response.estimated_cost) }}
+                </div>
+            {% endif %}
+            
+            {% if not response.success %}
+                <div class="alert alert-error" style="margin-top: 0.5rem;">
+                    Request failed
+                </div>
+            {% endif %}
+        </div>
+    {% endfor %}
+</div>
+
+{% if not responses %}
+    <div class="alert alert-error">
+        No responses received. Please check your settings and API keys.
+    </div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="grid">
+    <div class="card">
+        <h3>User Facts</h3>
+        {% if facts %}
+            {% for fact in facts %}
+                <div style="padding: 0.5rem; border-left: 3px solid #2563eb; margin-bottom: 0.5rem; background: #f8fafc;">
+                    <div style="font-size: 0.875rem; color: #666;">
+                        <strong>{{ fact[0]|title }}:</strong> {{ fact[2] }} (Score: {{ "%.2f"|format(fact[3]) }})
+                    </div>
+                    <div>{{ fact[1] }}</div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <p>No user facts stored yet. Enable auto-learning in settings and start chatting!</p>
+        {% endif %}
+    </div>
+    
+    <div class="card">
+        <h3>Recent Conversations</h3>
+        {% if conversations %}
+            {% for conversation in conversations %}
+                <div style="padding: 1rem; border: 1px solid #e5e7eb; margin-bottom: 1rem; border-radius: 6px;">
+                    <div style="font-size: 0.875rem; color: #666; margin-bottom: 0.5rem;">
+                        {{ conversation[0] }}
+                    </div>
+                    <div style="margin-bottom: 0.5rem;">
+                        <strong>You:</strong> {{ conversation[1] }}
+                    </div>
+                    
+                    {% set responses = conversation[2]|from_json %}
+                    {% if responses %}
+                        {% for provider, response in responses.items() %}
+                            <div style="margin-left: 1rem; margin-bottom: 0.5rem;">
+                                <strong>{{ provider|title }}:</strong> 
+                                {% if response.response|length > 150 %}
+                                    {{ response.response[:150] }}...
+                                {% else %}
+                                    {{ response.response }}
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+            {% endfor %}
+        {% else %}
+            <p>No conversations yet. Start chatting to build your memory!</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card">
+    <h3>Memory Management</h3>
+    <p>The system automatically learns from your conversations when auto-learning is enabled. Facts are extracted and stored to provide better context in future conversations.</p>
+    
+    <div style="margin-top: 1rem;">
+        <strong>Memory Types:</strong>
+        <ul>
+            <li><strong>Personal Facts:</strong> Information about you (name, preferences, etc.)</li>
+            <li><strong>Preferences:</strong> Things you like, dislike, or prefer</li>
+            <li><strong>Work Info:</strong> Professional information and work-related facts</li>
+            <li><strong>Context:</strong> General context from conversations</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
