@@ -25,8 +25,8 @@ Your `~/.zshrc` contains:
 ```bash
 export OPENAI_API_KEY="sk-proj-..."
 export ANTHROPIC_API_KEY="sk-ant-..."  
-export GOOGLE_API_KEY="AIza..."
-export SECRET_KEY="5e07c191..."
+export GOOGLE_API_KEY="..."
+export SECRET_KEY="..."
 ```
 
 When you start FelixGPT, it automatically reads these environment variables.
