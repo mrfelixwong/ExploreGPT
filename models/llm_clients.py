@@ -6,13 +6,12 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from .cost_tracker import cost_tracker
 from .web_search import web_search_manager
-from .debug_logger import get_debugger, debug_api_call, debug_error
+from .debug_logger import debug_api_call, debug_error
 
 class LLMOrchestrator:
     def __init__(self, settings=None):
         self.settings = settings or {}
         self.clients = {}
-        self.session_id = None
         
         # Initialize OpenAI client
         try:
@@ -44,18 +43,9 @@ class LLMOrchestrator:
         google_model = settings.get('models', {}).get('google', 'gemini-pro')
         self.clients['google'] = genai.GenerativeModel(google_model)
     
-    def set_session_id(self, session_id):
-        """Set session ID for debugging"""
-        self.session_id = session_id
     
     def chat_single(self, message, context=None):
         """Send message to the selected LLM provider"""
-        debugger = get_debugger(self.session_id)
-        debugger.log_user_action("chat_single", {
-            "provider": self.settings.get('ui_settings', {}).get('selected_provider', 'openai'),
-            "message_length": len(message),
-            "has_context": bool(context)
-        })
         
         # Get selected provider from settings
         selected_provider = self.settings.get('ui_settings', {}).get('selected_provider', 'openai')
@@ -101,12 +91,6 @@ class LLMOrchestrator:
     
     def chat_single_stream(self, message, context=None):
         """Stream message to the selected LLM provider with optional web search"""
-        debugger = get_debugger(self.session_id)
-        debugger.log_user_action("chat_single_stream", {
-            "provider": self.settings.get('ui_settings', {}).get('selected_provider', 'openai'),
-            "message_length": len(message),
-            "has_context": bool(context)
-        })
         
         # Get selected provider from settings
         selected_provider = self.settings.get('ui_settings', {}).get('selected_provider', 'openai')
@@ -178,10 +162,8 @@ class LLMOrchestrator:
         """Stream OpenAI response"""
         start_time = time.time()
         model = self.settings.get('models', {}).get('openai', 'gpt-3.5-turbo')
-        debugger = get_debugger(self.session_id)
         
         try:
-            debugger.log_streaming_event('start', 'openai')
             yield {'type': 'start', 'provider': 'openai', 'model': model}
             
             # Create streaming request
@@ -201,8 +183,6 @@ class LLMOrchestrator:
                     content = chunk.choices[0].delta.content
                     full_response += content
                     chunk_count += 1
-                    
-                    debugger.log_streaming_event('chunk', 'openai', chunk_size=len(content))
                     yield {
                         'type': 'content',
                         'text': content,
@@ -211,18 +191,10 @@ class LLMOrchestrator:
             
             # Send completion metadata
             latency = round((time.time() - start_time) * 1000, 2)
-            debugger.log_streaming_event('end', 'openai', total_chunks=chunk_count)
             
             # Log successful streaming call
-            debug_api_call(
-                provider='openai',
-                model=model,
-                message_length=len(message),
-                start_time=start_time,
-                success=True,
-                response_data={'streaming': True, 'chunks': chunk_count, 'response_length': len(full_response)},
-                session_id=self.session_id
-            )
+            debug_api_call('openai', True, latency, model=model, 
+                          streaming=True, chunks=chunk_count)
             
             yield {
                 'type': 'end',
@@ -234,18 +206,11 @@ class LLMOrchestrator:
             
         except Exception as e:
             error_msg = str(e)
-            debugger.log_streaming_event('error', 'openai', error=error_msg)
+            latency = round((time.time() - start_time) * 1000, 2)
             
             # Log failed streaming call
-            debug_api_call(
-                provider='openai',
-                model=model,
-                message_length=len(message),
-                start_time=start_time,
-                success=False,
-                error=error_msg,
-                session_id=self.session_id
-            )
+            debug_api_call('openai', False, latency, model=model, 
+                          streaming=True, error=error_msg)
             
             yield {
                 'type': 'error',
@@ -387,18 +352,8 @@ class LLMOrchestrator:
                 result['estimated_cost'] = estimated_cost
             
             # Log successful API call
-            debug_api_call(
-                provider='openai',
-                model=model,
-                message_length=len(message),
-                start_time=start_time,
-                success=True,
-                response_data={
-                    'tokens': result.get('tokens', {}),
-                    'estimated_cost': result.get('estimated_cost')
-                },
-                session_id=self.session_id
-            )
+            debug_api_call('openai', True, result['latency'], 
+                          model=model, tokens=result.get('tokens', {}))
             
             return result
             
@@ -411,15 +366,8 @@ class LLMOrchestrator:
             }
             
             # Log failed API call
-            debug_api_call(
-                provider='openai',
-                model=model,
-                message_length=len(message),
-                start_time=start_time,
-                success=False,
-                error=error_msg,
-                session_id=self.session_id
-            )
+            debug_api_call('openai', False, result['latency'], 
+                          model=model, error=error_msg)
             
             return result
     
@@ -461,18 +409,8 @@ class LLMOrchestrator:
                 result['estimated_cost'] = estimated_cost
             
             # Log successful API call
-            debug_api_call(
-                provider='anthropic',
-                model=model,
-                message_length=len(message),
-                start_time=start_time,
-                success=True,
-                response_data={
-                    'tokens': result.get('tokens', {}),
-                    'estimated_cost': result.get('estimated_cost')
-                },
-                session_id=self.session_id
-            )
+            debug_api_call('anthropic', True, result['latency'], 
+                          model=model, tokens=result.get('tokens', {}))
             
             return result
             
@@ -485,15 +423,8 @@ class LLMOrchestrator:
             }
             
             # Log failed API call
-            debug_api_call(
-                provider='anthropic',
-                model=model,
-                message_length=len(message),
-                start_time=start_time,
-                success=False,
-                error=error_msg,
-                session_id=self.session_id
-            )
+            debug_api_call('anthropic', False, result['latency'], 
+                          model=model, error=error_msg)
             
             return result
     
@@ -521,15 +452,7 @@ class LLMOrchestrator:
                 result['estimated_cost'] = estimated_cost
             
             # Log successful API call
-            debug_api_call(
-                provider='google',
-                model=model,
-                message_length=len(message),
-                start_time=start_time,
-                success=True,
-                response_data={'estimated_cost': result.get('estimated_cost')},
-                session_id=self.session_id
-            )
+            debug_api_call('google', True, result['latency'], model=model)
             
             return result
             
@@ -542,14 +465,7 @@ class LLMOrchestrator:
             }
             
             # Log failed API call
-            debug_api_call(
-                provider='google',
-                model=model,
-                message_length=len(message),
-                start_time=start_time,
-                success=False,
-                error=error_msg,
-                session_id=self.session_id
-            )
+            debug_api_call('google', False, result['latency'], 
+                          model=model, error=error_msg)
             
             return result

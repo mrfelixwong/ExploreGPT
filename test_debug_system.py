@@ -12,89 +12,51 @@ import sys
 import time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from models.debug_logger import get_debugger, is_claude_debug_enabled
+from models.debug_logger import debugger, debug_log, debug_api_call, debug_search, debug_error, is_debug_enabled
 
 def test_debug_logging():
     """Test basic debug logging functionality"""
     print("🧪 Testing Debug System")
     print("=" * 50)
     
-    # Check Claude debug mode
-    claude_debug = is_claude_debug_enabled()
-    print(f"Claude Debug Mode: {'ENABLED' if claude_debug else 'DISABLED'}")
+    # Check debug mode
+    debug_enabled = is_debug_enabled()
+    print(f"Debug Mode: {'ENABLED' if debug_enabled else 'DISABLED'}")
     
-    if claude_debug:
+    if debug_enabled:
         print("📁 Log file: /tmp/exploregpt_logs/exploregpt_debug.log")
-        print("🖥️  Console logging: ENABLED")
     else:
-        print("💡 To enable Claude debug mode: export CLAUDE_DEBUG=1")
+        print("💡 To enable debug mode: export CLAUDE_DEBUG=1")
     
     print()
-    
-    # Initialize debugger
-    session_id = "test_session_123"
-    debugger = get_debugger(session_id)
     
     # Test different types of logging
     print("🔄 Testing logging capabilities...")
     
-    # User action
-    debugger.log_user_action("test_action", {
-        "test_parameter": "test_value",
-        "timestamp": "test_time"
-    })
+    # Basic logging
+    debug_log("test_event", {"test_parameter": "test_value"})
     
     # API call simulation
-    start_time = time.time()
     time.sleep(0.1)  # Simulate API call
-    debugger.log_api_call(
-        provider="openai",
-        model="gpt-3.5-turbo",
-        message_length=100,
-        start_time=start_time,
-        success=True,
-        response_data={"tokens": {"input": 50, "output": 30}}
-    )
+    debug_api_call("openai", True, 123.5, model="gpt-3.5-turbo", tokens={"input": 50, "output": 30})
+    debug_api_call("anthropic", False, 245.8, model="claude-3-sonnet", error="Rate limit exceeded")
     
     # Search activity simulation
-    debugger.log_search_activity(
-        query="test search",
-        provider="DuckDuckGoProvider",
-        results_count=5,
-        duration_ms=250.5,
-        success=True
-    )
+    debug_search("test search", "DuckDuckGoProvider", 5, True, 250.5)
+    debug_search("failed search", "BraveSearchProvider", 0, False, 1200.0, "API key invalid")
     
     # Error logging
-    debugger.log_error(
-        error_type="test_error",
-        error_message="This is a test error for debugging",
-        context={"test_context": "example"}
-    )
-    
-    # Streaming event
-    debugger.log_streaming_event("start", "openai")
-    debugger.log_streaming_event("chunk", "openai", chunk_size=25)
-    debugger.log_streaming_event("end", "openai", total_chunks=10)
+    debug_error("test_error", "This is a test error for debugging", {"test_context": "example"})
     
     print("✅ Logged various event types")
-    
-    # Generate session summary
-    summary = debugger.get_session_summary()
-    print(f"📊 Session Duration: {summary['duration_seconds']:.2f} seconds")
-    
-    # Create debug snapshot
-    snapshot = debugger.create_debug_snapshot()
-    print(f"📸 Debug snapshot created with {len(snapshot)} keys")
     
     print()
     print("=" * 50)
     print("✨ Debug system test complete!")
     
-    if claude_debug:
+    if debug_enabled:
         print("📂 Check log file at: /tmp/exploregpt_logs/exploregpt_debug.log")
-        print("🌐 When running the app, visit: http://localhost:5001/settings")
-        print("   Look for the '🐛 Debug Information' section")
+        print("🌐 When running the app, debug info will be in settings")
     else:
         print("💡 To see enhanced debugging:")
         print("   export CLAUDE_DEBUG=1")
@@ -117,7 +79,7 @@ def test_environment_detection():
         else:
             os.environ['CLAUDE_DEBUG'] = value
         
-        result = is_claude_debug_enabled()
+        result = is_debug_enabled()
         expected = value in ('1', 'true', 'True', 'TRUE', 'yes', 'Yes') if value else False
         status = "✅" if result == expected else "❌"
         

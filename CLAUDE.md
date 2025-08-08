@@ -69,22 +69,28 @@ python test_debug_system.py
 ### Claude Code Integration
 
 #### Debug Mode
-- Set `CLAUDE_DEBUG=1` environment variable for enhanced debugging
+- Set `CLAUDE_DEBUG=1` environment variable for structured logging
 - Logs to `/tmp/exploregpt_logs/exploregpt_debug.log`
-- Structured JSON logging for all API calls, search queries, and errors
-- Debug UI available in Settings → Debug Information section
-
-#### Debug Endpoints
-- `/debug/status` - System health check (requires CLAUDE_DEBUG=1)
-- `/debug/logs` - Recent log entries in JSON format
-- `/debug/session` - Current session state and debug snapshot
+- JSON format for easy parsing by Claude Code
+- Zero performance impact when disabled
 
 #### Logging Coverage
-- **API Calls**: All LLM provider interactions (OpenAI, Anthropic, Google)
-- **Web Search**: Query processing, provider fallback, result counts
-- **Streaming**: Real-time response chunking and performance metrics
-- **User Actions**: Page loads, settings changes, session management
-- **Errors**: Full context with stack traces when debug enabled
+- **API Calls**: Response times, success/failure, token usage
+- **Web Search**: Provider fallback, result counts, query processing
+- **Errors**: Context and error messages for troubleshooting
+
+#### Usage
+```bash
+# Enable debug mode
+export CLAUDE_DEBUG=1
+python app.py
+
+# Test debug system
+python test_debug_system.py
+
+# View logs
+tail -f /tmp/exploregpt_logs/exploregpt_debug.log
+```
 
 ## Production Considerations
 - Change `SECRET_KEY` from development default
