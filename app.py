@@ -6,6 +6,7 @@ import sqlite3
 import json
 from datetime import datetime
 import os
+import uuid
 # Environment variables are loaded from ~/.zshrc
 
 app = Flask(__name__)
@@ -24,15 +25,24 @@ def from_json_filter(value):
 def init_db():
     conn = sqlite3.connect('memory.db')
     cursor = conn.cursor()
+    
+    # Create conversations table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS conversations (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             timestamp TEXT NOT NULL,
             user_message TEXT NOT NULL,
             responses TEXT NOT NULL,
-            context TEXT
+            context TEXT,
+            session_id TEXT
         )
     ''')
+    
+    # Check if session_id column exists, add it if not
+    cursor.execute("PRAGMA table_info(conversations)")
+    columns = [column[1] for column in cursor.fetchall()]
+    if 'session_id' not in columns:
+        cursor.execute('ALTER TABLE conversations ADD COLUMN session_id TEXT')
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS user_facts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -54,8 +64,18 @@ orchestrator = LLMOrchestrator(current_settings)
 
 @app.route('/')
 def index():
+    # Create or get session ID for conversation tracking
+    if 'session_id' not in session:
+        session['session_id'] = str(uuid.uuid4())
+    
+    # Load conversation history for this session
+    conversation = get_session_conversation(session['session_id'])
+    
     ui_classes = settings_manager.get_ui_classes(current_settings)
-    return render_template('index.html', settings=current_settings, ui_classes=ui_classes)
+    return render_template('index.html', 
+                         settings=current_settings, 
+                         ui_classes=ui_classes,
+                         conversation=conversation)
 
 @app.route('/chat', methods=['POST'])
 def chat():
@@ -63,24 +83,30 @@ def chat():
     if not user_message:
         return redirect(url_for('index'))
     
+    # Ensure session exists
+    if 'session_id' not in session:
+        session['session_id'] = str(uuid.uuid4())
+    
     # Get relevant context from memory
     context = get_relevant_context(user_message)
     
     # Send to selected LLM
     response = orchestrator.chat_single(user_message, context)
     
-    # Store conversation
-    store_conversation(user_message, response, context)
+    # Store conversation with session ID
+    store_conversation(user_message, response, context, session['session_id'])
     
     # Extract and store user facts
     extract_user_facts(user_message, response)
     
-    ui_classes = settings_manager.get_ui_classes(current_settings)
-    return render_template('chat_response.html', 
-                         user_message=user_message, 
-                         response=response,
-                         settings=current_settings,
-                         ui_classes=ui_classes)
+    # Redirect back to index with updated conversation
+    return redirect(url_for('index'))
+
+@app.route('/new-chat')
+def new_chat():
+    """Start a new chat session"""
+    session['session_id'] = str(uuid.uuid4())
+    return redirect(url_for('index'))
 
 @app.route('/settings')
 def settings_page():
@@ -234,8 +260,8 @@ def get_relevant_context(message, limit=5):
     conn.close()
     return list(set(context))[:limit]  # Remove duplicates and limit
 
-def store_conversation(user_message, response, context):
-    """Store conversation in memory"""
+def store_conversation(user_message, response, context, session_id):
+    """Store conversation in memory with session tracking"""
     conn = sqlite3.connect('memory.db')
     cursor = conn.cursor()
     
@@ -244,12 +270,44 @@ def store_conversation(user_message, response, context):
     context_json = json.dumps(context) if context else None
     
     cursor.execute('''
-        INSERT INTO conversations (timestamp, user_message, responses, context)
-        VALUES (?, ?, ?, ?)
-    ''', (timestamp, user_message, response_json, context_json))
+        INSERT INTO conversations (timestamp, user_message, responses, context, session_id)
+        VALUES (?, ?, ?, ?, ?)
+    ''', (timestamp, user_message, response_json, context_json, session_id))
     
     conn.commit()
     conn.close()
+
+def get_session_conversation(session_id, limit=10):
+    """Get recent conversation for a session"""
+    conn = sqlite3.connect('memory.db')
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT timestamp, user_message, responses 
+        FROM conversations 
+        WHERE session_id = ?
+        ORDER BY timestamp DESC 
+        LIMIT ?
+    ''', (session_id, limit))
+    
+    raw_conversation = cursor.fetchall()
+    conn.close()
+    
+    # Format for template: reverse order (oldest first) and parse JSON
+    conversation = []
+    for timestamp, user_msg, response_json in reversed(raw_conversation):
+        try:
+            response = json.loads(response_json)
+            conversation.append({
+                'timestamp': timestamp,
+                'user_message': user_msg,
+                'response': response
+            })
+        except json.JSONDecodeError:
+            # Handle legacy format if needed
+            pass
+    
+    return conversation
 
 def extract_user_facts(user_message, response):
     """Extract and store user facts from the conversation"""

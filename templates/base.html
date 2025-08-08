@@ -274,6 +274,56 @@
             color: #666;
             margin-top: 0.5rem;
         }
+        
+        /* Conversation History Styles */
+        .conversation-history {
+            background: #fafafa;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-bottom: 1rem;
+            padding: 1rem;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+        }
+        
+        body.theme-dark .conversation-history {
+            background: #2a2a2a;
+            border: 1px solid #4b5563;
+        }
+        
+        .conversation-turn {
+            margin-bottom: 1rem;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 1rem;
+        }
+        
+        body.theme-dark .conversation-turn {
+            border-bottom: 1px solid #4b5563;
+        }
+        
+        .conversation-turn:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        
+        .user-message {
+            margin-bottom: 0.5rem;
+            color: #0066cc;
+        }
+        
+        body.theme-dark .user-message {
+            color: #60a5fa;
+        }
+        
+        .ai-response {
+            color: #333;
+            white-space: pre-wrap;
+        }
+        
+        body.theme-dark .ai-response {
+            color: #e5e7eb;
+        }
     </style>
 </head>
 <body class="{{ ui_classes.theme_class if ui_classes else 'theme-light' }}">

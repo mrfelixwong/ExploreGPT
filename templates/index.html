@@ -2,16 +2,40 @@
 
 {% block content %}
 <div class="card">
-    <h2>AI Chat Interface</h2>
-    <p>Chat with your selected AI provider: <strong>{{ settings.ui_settings.selected_provider|title }}</strong></p>
+    <h2>AI Chat - {{ settings.ui_settings.selected_provider|title }}</h2>
     
-    <form method="POST" action="/chat">
+    <!-- Conversation History -->
+    {% if conversation %}
+    <div class="conversation-history" style="max-height: 400px; overflow-y: auto; margin-bottom: 1rem; padding: 1rem; border: 1px solid #ddd; border-radius: 6px;">
+        {% for turn in conversation %}
+            <div class="conversation-turn" style="margin-bottom: 1rem; border-bottom: 1px solid #eee; padding-bottom: 1rem;">
+                <div class="user-message" style="margin-bottom: 0.5rem;">
+                    <strong>You:</strong> {{ turn.user_message }}
+                </div>
+                <div class="ai-response">
+                    <strong>{{ turn.response.provider|title if turn.response.provider else "AI" }}:</strong> 
+                    {{ turn.response.response }}
+                    {% if settings.response_settings.show_metadata and turn.response.latency %}
+                        <small style="color: #666;">({{ turn.response.latency }}ms)</small>
+                    {% endif %}
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p style="color: #666; font-style: italic; margin-bottom: 1rem;">Start a new conversation below...</p>
+    {% endif %}
+    
+    <!-- Message Input Form -->
+    <form method="POST" action="/chat" style="border-top: 1px solid #eee; padding-top: 1rem;">
         <div class="form-group">
-            <label for="message">Your Message:</label>
-            <textarea name="message" id="message" rows="4" placeholder="Type your message here..." required></textarea>
+            <textarea name="message" id="message" rows="3" placeholder="Type your message here..." required style="resize: vertical;"></textarea>
         </div>
         
         <button type="submit" class="btn">Send Message</button>
+        {% if conversation %}
+            <a href="/new-chat" class="btn btn-secondary" style="margin-left: 0.5rem;">New Chat</a>
+        {% endif %}
     </form>
 </div>
 
