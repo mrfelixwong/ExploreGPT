@@ -44,7 +44,23 @@ def init_db():
     columns = [column[1] for column in cursor.fetchall()]
     if 'session_id' not in columns:
         cursor.execute('ALTER TABLE conversations ADD COLUMN session_id TEXT')
-    # Removed user_facts table - simplified to conversation context only
+    
+    # Create settings table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        )
+    ''')
+    
+    # Create cost_tracking table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS cost_tracking (
+            date TEXT PRIMARY KEY,
+            total_cost REAL NOT NULL
+        )
+    ''')
+    
     conn.commit()
     conn.close()
 
@@ -194,7 +210,6 @@ def update_settings():
     # Model settings
     new_settings['models'] = {
         'openai': request.form.get('openai_model', 'gpt-4'),
-        'anthropic': request.form.get('anthropic_model', 'claude-3-sonnet-20240229'),
         'google': request.form.get('google_model', 'gemini-pro')
     }
     
@@ -204,11 +219,6 @@ def update_settings():
             'enabled': 'openai_enabled' in request.form,
             'priority': int(request.form.get('openai_priority', 1)),
             'fallback': 'openai_fallback' in request.form
-        },
-        'anthropic': {
-            'enabled': 'anthropic_enabled' in request.form,
-            'priority': int(request.form.get('anthropic_priority', 2)),
-            'fallback': 'anthropic_fallback' in request.form
         },
         'google': {
             'enabled': 'google_enabled' in request.form,
@@ -350,8 +360,7 @@ if __name__ == '__main__':
         print("🐛 Claude Debug Mode: ENABLED")
         print("   - Logs to /tmp/exploregpt_logs/exploregpt_debug.log")
     print("✅ OpenAI API: Ready")
-    print("✅ Google API: Ready") 
-    print("⚠️  Anthropic API: Disabled (library issue)")
+    print("✅ Google API: Ready")
     print()
     print("🌐 Open your browser to: http://localhost:5001")
     print("🛑 Press Ctrl+C to stop the server")

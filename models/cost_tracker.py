@@ -1,10 +1,9 @@
-import json
-import os
+import sqlite3
 from datetime import datetime
-from typing import Dict, Optional
+from typing import Dict
 
 class SimpleCostTracker:
-    """Simplified cost tracker with basic estimates"""
+    """Simplified cost tracker using SQLite"""
     
     # Rough pricing estimates (may be outdated - for reference only)
     ROUGH_ESTIMATES = {
@@ -22,21 +21,23 @@ class SimpleCostTracker:
         }
     }
     
-    def __init__(self, cost_file='cost_tracking.json'):
-        self.cost_file = cost_file
+    def __init__(self):
         self.daily_total = self._load_daily_total()
     
     def _load_daily_total(self) -> float:
-        """Load today's spending total"""
-        if os.path.exists(self.cost_file):
-            try:
-                with open(self.cost_file, 'r') as f:
-                    data = json.load(f)
-                    today = datetime.now().strftime('%Y-%m-%d')
-                    return data.get(today, 0.0)
-            except:
-                return 0.0
-        return 0.0
+        """Load today's spending total from SQLite"""
+        try:
+            conn = sqlite3.connect('memory.db')
+            cursor = conn.cursor()
+            
+            today = datetime.now().strftime('%Y-%m-%d')
+            cursor.execute("SELECT total_cost FROM cost_tracking WHERE date = ?", (today,))
+            row = cursor.fetchone()
+            conn.close()
+            
+            return row[0] if row else 0.0
+        except sqlite3.Error:
+            return 0.0
     
     def estimate_cost(self, provider: str, model: str, input_tokens: int, output_tokens: int = 0) -> float:
         """Estimate cost for API call - WARNING: These are rough estimates and may be outdated"""
@@ -51,21 +52,30 @@ class SimpleCostTracker:
         return max(1, len(message) // 4)
     
     def record_cost(self, provider: str, model: str, cost: float):
-        """Record actual cost spending"""
+        """Record actual cost spending in SQLite"""
         today = datetime.now().strftime('%Y-%m-%d')
         
         try:
-            data = {}
-            if os.path.exists(self.cost_file):
-                with open(self.cost_file, 'r') as f:
-                    data = json.load(f)
+            conn = sqlite3.connect('memory.db')
+            cursor = conn.cursor()
             
-            data[today] = data.get(today, 0.0) + cost
-            self.daily_total = data[today]
+            # Get current total for today
+            cursor.execute("SELECT total_cost FROM cost_tracking WHERE date = ?", (today,))
+            row = cursor.fetchone()
+            current_total = row[0] if row else 0.0
             
-            with open(self.cost_file, 'w') as f:
-                json.dump(data, f, indent=2)
-        except:
+            # Update or insert new total
+            new_total = current_total + cost
+            cursor.execute('''
+                INSERT OR REPLACE INTO cost_tracking (date, total_cost) 
+                VALUES (?, ?)
+            ''', (today, new_total))
+            
+            conn.commit()
+            conn.close()
+            
+            self.daily_total = new_total
+        except sqlite3.Error:
             pass  # Fail silently if cost tracking fails
     
     def get_cost_summary(self) -> Dict:

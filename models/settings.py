@@ -1,10 +1,11 @@
 import json
-import os
+import sqlite3
 from typing import Dict, Any
 
 class SettingsManager:
-    def __init__(self, settings_file='user_settings.json'):
-        self.settings_file = settings_file
+    """Settings manager using SQLite for persistence"""
+    
+    def __init__(self):
         self.default_settings = self._get_default_settings()
     
     def _get_default_settings(self) -> Dict[str, Any]:
@@ -12,7 +13,6 @@ class SettingsManager:
         return {
             'models': {
                 'openai': 'gpt-3.5-turbo',
-                'anthropic': 'claude-3-sonnet-20240229',
                 'google': 'gemini-1.5-flash'
             },
             'response_settings': {
@@ -32,26 +32,43 @@ class SettingsManager:
         }
     
     def load_settings(self) -> Dict[str, Any]:
-        """Load settings from file or return defaults"""
-        if os.path.exists(self.settings_file):
-            try:
-                with open(self.settings_file, 'r') as f:
-                    saved_settings = json.load(f)
-                    # Merge with defaults to ensure all keys exist
-                    return self._merge_settings(self.default_settings, saved_settings)
-            except (json.JSONDecodeError, IOError):
-                pass
+        """Load settings from SQLite database"""
+        try:
+            conn = sqlite3.connect('memory.db')
+            cursor = conn.cursor()
+            
+            cursor.execute("SELECT value FROM settings WHERE key = 'user_settings' LIMIT 1")
+            row = cursor.fetchone()
+            conn.close()
+            
+            if row:
+                saved_settings = json.loads(row[0])
+                # Merge with defaults to ensure all keys exist
+                return self._merge_settings(self.default_settings, saved_settings)
+        except (sqlite3.Error, json.JSONDecodeError):
+            pass
+        
         return self.default_settings.copy()
     
     def save_settings(self, settings: Dict[str, Any]) -> bool:
-        """Save settings to file"""
+        """Save settings to SQLite database"""
         try:
             # Merge with defaults to ensure consistency
             merged_settings = self._merge_settings(self.default_settings, settings)
-            with open(self.settings_file, 'w') as f:
-                json.dump(merged_settings, f, indent=2)
+            settings_json = json.dumps(merged_settings, indent=2)
+            
+            conn = sqlite3.connect('memory.db')
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                INSERT OR REPLACE INTO settings (key, value) 
+                VALUES ('user_settings', ?)
+            ''', (settings_json,))
+            
+            conn.commit()
+            conn.close()
             return True
-        except IOError:
+        except sqlite3.Error:
             return False
     
     def _merge_settings(self, defaults: Dict, user_settings: Dict) -> Dict:
@@ -67,9 +84,6 @@ class SettingsManager:
     def get_model_config(self, settings: Dict[str, Any]) -> Dict[str, str]:
         """Get model configuration for LLM clients"""
         return settings.get('models', self.default_settings['models'])
-    
-    # Removed unused methods: get_enabled_providers, is_within_budget
-    # These were part of the complex multi-provider system that's no longer needed
     
     def get_ui_classes(self, settings: Dict[str, Any]) -> Dict[str, str]:
         """Get CSS classes based on UI settings"""

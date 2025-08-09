@@ -1,13 +1,13 @@
+"""Simplified web search functionality"""
 import requests
 import re
-import json
 from typing import List, Dict, Optional
 from bs4 import BeautifulSoup
 import time
 from .debug_logger import debug_search, debug_error
 
 class SearchResult:
-    """Represents a single search result"""
+    """Simple search result container"""
     def __init__(self, title: str, url: str, snippet: str, content: str = None):
         self.title = title
         self.url = url
@@ -22,286 +22,163 @@ class SearchResult:
             'content': self.content
         }
 
-class SearchIntentDetector:
-    """Detects when a user message requires web search"""
+class SimpleWebSearch:
+    """Simplified web search with Brave and DuckDuckGo fallback"""
     
-    def __init__(self):
-        self.search_patterns = [
-            r'search for',
-            r'look up',
-            r'find.*information',
-            r'what.*latest',
-            r'current.*news',
-            r'recent.*updates',
-            r'today.*news',
-            r'what.*happening',
-            r'latest.*on',
-            r'find.*about',
-            r'web search',
-            r'google',
-            r'search the web'
+    def __init__(self, brave_api_key: str = None):
+        self.brave_api_key = brave_api_key
+        
+        # Simple patterns for detecting search intent
+        self.search_triggers = [
+            'search', 'look up', 'find', 'latest', 'current', 'recent', 
+            'today', 'news', 'happening', 'google', 'web'
         ]
         
-        self.temporal_patterns = [
-            r'today',
-            r'yesterday',
-            r'this week',
-            r'recent',
-            r'latest',
-            r'current',
-            r'now',
-            r'2024',
-            r'2025'
-        ]
+        # Temporal keywords that often need fresh information
+        self.temporal_keywords = ['today', 'latest', 'current', 'recent', '2024', '2025']
     
-    def needs_search(self, message: str) -> bool:
-        """Determine if message requires web search"""
+    def should_search(self, message: str) -> bool:
+        """Check if message needs web search"""
         message_lower = message.lower()
         
-        # Direct search requests
-        for pattern in self.search_patterns:
-            if re.search(pattern, message_lower):
-                return True
+        # Check for explicit search requests
+        if any(trigger in message_lower for trigger in self.search_triggers):
+            return True
         
-        # Questions about recent/current events
-        has_temporal = any(re.search(p, message_lower) for p in self.temporal_patterns)
-        has_question = any(word in message_lower for word in ['what', 'how', 'when', 'where', 'who', 'why'])
+        # Check for temporal questions
+        has_temporal = any(keyword in message_lower for keyword in self.temporal_keywords)
+        has_question = any(q in message_lower for q in ['what', 'how', 'when', 'where', 'who'])
         
         return has_temporal and has_question
     
-    def extract_query(self, message: str) -> str:
-        """Extract search query from user message"""
-        # Remove search trigger words
-        query = re.sub(r'\b(search for|look up|find information about|google)\s+', '', message, flags=re.I)
+    def search(self, query: str, count: int = 5, extract_content: bool = False) -> List[SearchResult]:
+        """Perform web search with fallback"""
+        start_time = time.time()
+        results = []
         
-        # Clean up common question words at the beginning
-        query = re.sub(r'^(what is|what are|how do|how does|tell me about|explain)\s+', '', query, flags=re.I)
+        # Try Brave Search first
+        if self.brave_api_key:
+            results = self._search_brave(query, count)
         
-        return query.strip()
-
-class BraveSearchProvider:
-    """Brave Search API provider"""
+        # Fallback to DuckDuckGo if needed
+        if not results:
+            results = self._search_duckduckgo(query, count)
+        
+        # Extract content if requested
+        if extract_content and results:
+            self._extract_content(results[:3])  # Only extract top 3 for performance
+        
+        # Log search operation
+        latency = round((time.time() - start_time) * 1000, 2)
+        debug_search(query, len(results), latency, 
+                    provider='brave' if self.brave_api_key and results else 'duckduckgo')
+        
+        return results
     
-    def __init__(self, api_key: str = None):
-        self.api_key = api_key
-        self.base_url = "https://api.search.brave.com/res/v1/web/search"
-    
-    def search(self, query: str, count: int = 5) -> List[SearchResult]:
-        """Search using Brave Search API"""
-        if not self.api_key:
-            return []
-        
+    def _search_brave(self, query: str, count: int) -> List[SearchResult]:
+        """Search using Brave API"""
         try:
             response = requests.get(
-                self.base_url,
-                params={
-                    'q': query,
-                    'count': count,
-                    'safesearch': 'moderate',
-                    'freshness': 'pw'  # Past week for fresh results
-                },
+                "https://api.search.brave.com/res/v1/web/search",
+                params={'q': query, 'count': count},
+                headers={'X-Subscription-Token': self.brave_api_key},
+                timeout=5
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                return [
+                    SearchResult(
+                        title=r.get('title', ''),
+                        url=r.get('url', ''),
+                        snippet=r.get('description', '')
+                    )
+                    for r in data.get('web', {}).get('results', [])
+                ]
+        except Exception as e:
+            debug_error("brave_search_error", str(e), {"query": query})
+        
+        return []
+    
+    def _search_duckduckgo(self, query: str, count: int) -> List[SearchResult]:
+        """Search using DuckDuckGo HTML parsing (no API needed)"""
+        try:
+            response = requests.get(
+                "https://duckduckgo.com/html/",
+                params={'q': query},
                 headers={
-                    'Accept': 'application/json',
-                    'Accept-Encoding': 'gzip',
-                    'X-Subscription-Token': self.api_key
+                    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
                 },
-                timeout=10
+                timeout=5
             )
             
-            if response.status_code == 200:
-                data = response.json()
-                results = []
-                
-                for item in data.get('web', {}).get('results', []):
-                    result = SearchResult(
-                        title=item.get('title', ''),
-                        url=item.get('url', ''),
-                        snippet=item.get('description', '')
-                    )
-                    results.append(result)
-                
-                return results
-            
-        except Exception as e:
-            print(f"Brave Search error: {e}")
-        
-        return []
-
-class DuckDuckGoProvider:
-    """DuckDuckGo Instant Answers fallback provider"""
-    
-    def __init__(self):
-        self.base_url = "https://api.duckduckgo.com"
-    
-    def search(self, query: str, count: int = 5) -> List[SearchResult]:
-        """Search using DuckDuckGo Instant Answers API"""
-        try:
-            response = requests.get(
-                self.base_url,
-                params={
-                    'q': query,
-                    'format': 'json',
-                    'no_redirect': '1',
-                    'no_html': '1',
-                    'skip_disambig': '1'
-                },
-                timeout=10
-            )
-            
-            if response.status_code == 200:
-                data = response.json()
-                results = []
-                
-                # Abstract (instant answer)
-                if data.get('Abstract'):
-                    result = SearchResult(
-                        title=data.get('Heading', 'DuckDuckGo Result'),
-                        url=data.get('AbstractURL', ''),
-                        snippet=data.get('Abstract', '')
-                    )
-                    results.append(result)
-                
-                # Related topics
-                for topic in data.get('RelatedTopics', [])[:count-1]:
-                    if isinstance(topic, dict) and topic.get('Text'):
-                        result = SearchResult(
-                            title=topic.get('Text', '')[:100],
-                            url=topic.get('FirstURL', ''),
-                            snippet=topic.get('Text', '')
-                        )
-                        results.append(result)
-                
-                return results
-                
-        except Exception as e:
-            print(f"DuckDuckGo Search error: {e}")
-        
-        return []
-
-class SearchResultProcessor:
-    """Processes and extracts content from search results"""
-    
-    def __init__(self):
-        self.session = requests.Session()
-        self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (ExploreGPT/1.0; Web Search Bot)'
-        })
-    
-    def extract_content(self, result: SearchResult, max_length: int = 1000) -> str:
-        """Extract main content from a search result URL"""
-        try:
-            response = self.session.get(result.url, timeout=5)
             if response.status_code == 200:
                 soup = BeautifulSoup(response.text, 'html.parser')
+                results = []
                 
-                # Remove unwanted elements
-                for element in soup(['script', 'style', 'nav', 'header', 'footer', 'aside']):
-                    element.decompose()
+                for result in soup.find_all('div', class_='result')[:count]:
+                    title_elem = result.find('a', class_='result__a')
+                    snippet_elem = result.find('a', class_='result__snippet')
+                    
+                    if title_elem:
+                        results.append(SearchResult(
+                            title=title_elem.get_text(strip=True),
+                            url=title_elem.get('href', ''),
+                            snippet=snippet_elem.get_text(strip=True) if snippet_elem else ''
+                        ))
                 
-                # Find main content
-                main_content = soup.find('main') or soup.find('article') or soup.find('div', class_='content')
-                if not main_content:
-                    main_content = soup.find('body')
-                
-                if main_content:
-                    text = main_content.get_text(separator=' ', strip=True)
-                    # Clean up whitespace
-                    text = re.sub(r'\s+', ' ', text)
-                    return text[:max_length]
-                
+                return results
         except Exception as e:
-            print(f"Content extraction error for {result.url}: {e}")
-        
-        return result.snippet
-    
-    def format_results(self, results: List[SearchResult], include_content: bool = False) -> str:
-        """Format search results for LLM consumption"""
-        if not results:
-            return "No search results found."
-        
-        formatted = []
-        for i, result in enumerate(results, 1):
-            content = result.content if include_content and result.content else result.snippet
-            
-            formatted_result = f"""
-{i}. **{result.title}**
-   URL: {result.url}
-   Content: {content}
-"""
-            formatted.append(formatted_result.strip())
-        
-        return "\n\n".join(formatted)
-
-class WebSearchManager:
-    """Main web search manager that coordinates all providers"""
-    
-    def __init__(self, brave_api_key: str = None):
-        self.intent_detector = SearchIntentDetector()
-        self.result_processor = SearchResultProcessor()
-        
-        # Initialize providers in priority order
-        self.providers = []
-        if brave_api_key:
-            self.providers.append(BraveSearchProvider(brave_api_key))
-        self.providers.append(DuckDuckGoProvider())
-    
-    def should_search(self, message: str) -> bool:
-        """Check if message requires web search"""
-        return self.intent_detector.needs_search(message)
-    
-    def search(self, query: str, count: int = 5, extract_content: bool = False) -> List[SearchResult]:
-        """Search using available providers with fallback"""
-        search_start_time = time.time()
-        query = self.intent_detector.extract_query(query)
-        
-        for provider in self.providers:
-            provider_start_time = time.time()
-            provider_name = provider.__class__.__name__
-            
-            try:
-                results = provider.search(query, count)
-                provider_duration_ms = round((time.time() - provider_start_time) * 1000, 2)
-                
-                if results:
-                    # Log successful search
-                    debug_search(query, provider_name, len(results), True, provider_duration_ms)
-                    
-                    # Extract content if requested
-                    if extract_content:
-                        for result in results:
-                            result.content = self.result_processor.extract_content(result)
-                    
-                    return results
-                else:
-                    # Log failed search attempt
-                    debug_search(query, provider_name, 0, False, provider_duration_ms, "No results")
-                    
-            except Exception as e:
-                error_msg = str(e)
-                provider_duration_ms = round((time.time() - provider_start_time) * 1000, 2)
-                
-                # Log search provider error
-                debug_search(query, provider_name, 0, False, provider_duration_ms, error_msg)
-                debug_error("search_provider_error", error_msg, {"provider": provider_name})
-                continue
-        
-        # No providers succeeded
-        total_duration_ms = round((time.time() - search_start_time) * 1000, 2)
-        debug_error("web_search_failed", f"All providers failed for query: {query}", 
-                   {"duration_ms": total_duration_ms, "providers_tried": len(self.providers)})
+            debug_error("duckduckgo_search_error", str(e), {"query": query})
         
         return []
+    
+    def _extract_content(self, results: List[SearchResult]):
+        """Extract content from search results"""
+        for result in results:
+            try:
+                response = requests.get(result.url, timeout=3, headers={
+                    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
+                })
+                
+                if response.status_code == 200:
+                    soup = BeautifulSoup(response.text, 'html.parser')
+                    
+                    # Remove scripts and styles
+                    for tag in soup(['script', 'style', 'nav', 'header', 'footer']):
+                        tag.decompose()
+                    
+                    # Extract text from paragraphs
+                    paragraphs = soup.find_all('p')[:5]  # First 5 paragraphs
+                    content = ' '.join(p.get_text(strip=True) for p in paragraphs)
+                    
+                    # Limit content length
+                    result.content = content[:500] + "..." if len(content) > 500 else content
+                    
+            except Exception:
+                # Silent fail for content extraction
+                pass
     
     def format_for_llm(self, query: str, results: List[SearchResult]) -> str:
         """Format search results for LLM context"""
         if not results:
-            return f"Web search for '{query}' returned no results."
+            return "No search results found."
         
-        formatted = f"Web search results for '{query}':\n\n"
-        formatted += self.result_processor.format_results(results, include_content=True)
-        formatted += f"\n\n[Found {len(results)} results]"
+        formatted = f"Web search results for: {query}\n\n"
         
-        return formatted
+        for i, result in enumerate(results, 1):
+            formatted += f"{i}. {result.title}\n"
+            formatted += f"   URL: {result.url}\n"
+            
+            if result.content:
+                formatted += f"   Content: {result.content}\n"
+            else:
+                formatted += f"   Snippet: {result.snippet}\n"
+            
+            formatted += "\n"
+        
+        return formatted.strip()
 
-# Global web search instance
-web_search_manager = WebSearchManager()
+# Global instance with optional API key
+import os
+web_search_manager = SimpleWebSearch(brave_api_key=os.getenv('BRAVE_API_KEY'))

@@ -15,13 +15,6 @@
                 </select>
             </div>
             
-            <div class="form-group">
-                <label for="anthropic_model">Anthropic Model:</label>
-                <select name="anthropic_model" id="anthropic_model">
-                    <option value="claude-3-sonnet-20240229" {% if settings.models.anthropic == 'claude-3-sonnet-20240229' %}selected{% endif %}>Claude 3 Sonnet</option>
-                    <option value="claude-3-haiku-20240307" {% if settings.models.anthropic == 'claude-3-haiku-20240307' %}selected{% endif %}>Claude 3 Haiku</option>
-                </select>
-            </div>
             
             <div class="form-group">
                 <label for="google_model">Google Model:</label>
@@ -35,7 +28,7 @@
         <div class="card">
             <h3>Provider Settings</h3>
             
-            {% for provider in ['openai', 'anthropic', 'google'] %}
+            {% for provider in ['openai', 'google'] %}
                 <h4>{{ provider|title }}</h4>
                 
                 <div class="form-group">
@@ -135,7 +128,6 @@
                 <select name="selected_provider" id="selected_provider">
                     <option value="openai" {% if settings.ui_settings.selected_provider == 'openai' %}selected{% endif %}>OpenAI</option>
                     <option value="google" {% if settings.ui_settings.selected_provider == 'google' %}selected{% endif %}>Google Gemini</option>
-                    <option value="anthropic" {% if settings.ui_settings.selected_provider == 'anthropic' %}selected{% endif %} disabled>Anthropic (Disabled)</option>
                 </select>
             </div>
             
