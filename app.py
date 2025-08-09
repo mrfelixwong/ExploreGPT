@@ -131,8 +131,9 @@ def stream_chat():
     if 'session_id' not in session:
         session['session_id'] = str(uuid.uuid4())
     
-    # Capture session_id before generator starts
+    # Capture session_id and context before generator starts
     session_id = session['session_id']
+    context = get_relevant_context(user_message)
     
     def generate():
         try:
@@ -145,8 +146,7 @@ def stream_chat():
             # Send typing indicator
             yield "data: " + json.dumps({'type': 'typing', 'message': 'AI is thinking...'}) + "\n\n"
             
-            # Get relevant context from memory
-            context = get_relevant_context(user_message)
+            # Context already captured before generator started
             
             # Stream response from LLM
             full_response_text = ""
