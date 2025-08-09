@@ -40,6 +40,11 @@ class LLMOrchestrator:
         """Send message to the selected LLM provider"""
         selected_provider = self.settings.get('ui_settings', {}).get('selected_provider', 'openai')
         
+        debug_api_call(selected_provider, True, 0, 
+                      event="chat_single_start", 
+                      message_length=len(message),
+                      context_items=len(context) if context else 0)
+        
         # Check if provider is available
         if selected_provider not in self.clients:
             return {
@@ -70,6 +75,11 @@ class LLMOrchestrator:
     def chat_single_stream(self, message, context=None):
         """Stream message to the selected LLM provider with optional web search"""
         selected_provider = self.settings.get('ui_settings', {}).get('selected_provider', 'openai')
+        
+        debug_api_call(selected_provider, True, 0,
+                      event="chat_stream_start",
+                      message_length=len(message),
+                      context_items=len(context) if context else 0)
         
         # Check if provider is available
         if selected_provider not in self.clients:
@@ -235,15 +245,17 @@ class LLMOrchestrator:
             
         except Exception as e:
             error_msg = str(e)
+            latency = round((time.time() - start_time) * 1000, 2)
             result = {
                 'response': f'Error: {error_msg}',
                 'success': False,
-                'latency': round((time.time() - start_time) * 1000, 2)
+                'latency': latency
             }
             
-            # Log failed API call
-            debug_api_call('openai', False, result['latency'], 
-                          model=model, error=error_msg)
+            # Log failed API call with details
+            debug_api_call('openai', False, latency, 
+                          model=model, error=error_msg,
+                          error_type=type(e).__name__)
             
             return result
     
@@ -276,14 +288,16 @@ class LLMOrchestrator:
             
         except Exception as e:
             error_msg = str(e)
+            latency = round((time.time() - start_time) * 1000, 2)
             result = {
                 'response': f'Error: {error_msg}',
                 'success': False,
-                'latency': round((time.time() - start_time) * 1000, 2)
+                'latency': latency
             }
             
-            # Log failed API call
-            debug_api_call('google', False, result['latency'], 
-                          model=model, error=error_msg)
+            # Log failed API call with details
+            debug_api_call('google', False, latency, 
+                          model=model, error=error_msg,
+                          error_type=type(e).__name__)
             
             return result

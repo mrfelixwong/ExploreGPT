@@ -1,6 +1,7 @@
 import sqlite3
 from datetime import datetime
 from typing import Dict
+from .debug_logger import debug_log, debug_error
 
 class SimpleCostTracker:
     """Simplified cost tracker using SQLite"""
@@ -53,6 +54,11 @@ class SimpleCostTracker:
     
     def record_cost(self, provider: str, model: str, cost: float):
         """Record actual cost spending in SQLite"""
+        debug_log("cost_record", {
+            "provider": provider,
+            "model": model,
+            "cost": cost
+        })
         today = datetime.now().strftime('%Y-%m-%d')
         
         try:
@@ -75,7 +81,9 @@ class SimpleCostTracker:
             conn.close()
             
             self.daily_total = new_total
-        except sqlite3.Error:
+            debug_log("cost_record_success", {"new_total": new_total})
+        except sqlite3.Error as e:
+            debug_error("cost_record_error", str(e))
             pass  # Fail silently if cost tracking fails
     
     def get_cost_summary(self) -> Dict:

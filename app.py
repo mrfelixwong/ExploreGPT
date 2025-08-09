@@ -2,7 +2,7 @@ from flask import Flask, render_template, request, redirect, url_for, jsonify, s
 from models.settings import settings_manager
 from models.llm_clients import LLMOrchestrator
 from models.cost_tracker import cost_tracker
-from models.debug_logger import debug_log, debug_error, is_debug_enabled
+from models.debug_logger import debug_log, debug_error, debug_api_call, is_debug_enabled
 import sqlite3
 import json
 from datetime import datetime
@@ -98,15 +98,30 @@ def chat():
     if not user_message:
         return redirect(url_for('index'))
     
+    # Log incoming request
+    debug_log("chat_request", {
+        "message_length": len(user_message),
+        "has_session": 'session_id' in session
+    })
+    
     # Ensure session exists
     if 'session_id' not in session:
         session['session_id'] = str(uuid.uuid4())
+        debug_log("session_created", {"session_id": session['session_id']})
     
     # Get relevant context from memory
     context = get_relevant_context(user_message)
     
     # Send to selected LLM
     response = orchestrator.chat_single(user_message, context)
+    
+    # Log response details
+    debug_log("chat_response", {
+        "success": response.get('success', False),
+        "provider": response.get('provider', 'unknown'),
+        "latency": response.get('latency', 0),
+        "response_length": len(response.get('response', ''))
+    })
     
     # Store conversation with session ID
     store_conversation(user_message, response, context, session['session_id'])
@@ -127,9 +142,16 @@ def stream_chat():
     if not user_message:
         return Response("data: " + json.dumps({'type': 'error', 'message': 'No message provided'}) + "\n\n", mimetype='text/plain')
     
+    # Log streaming request
+    debug_log("stream_request", {
+        "message_length": len(user_message),
+        "has_session": 'session_id' in session
+    })
+    
     # Ensure session exists
     if 'session_id' not in session:
         session['session_id'] = str(uuid.uuid4())
+        debug_log("session_created", {"session_id": session['session_id']})
     
     # Capture session_id and context before generator starts
     session_id = session['session_id']
@@ -239,12 +261,20 @@ def update_settings():
     }
     
     # Save settings
+    debug_log("settings_update", {
+        "models": list(new_settings.get('models', {}).keys()),
+        "ui_theme": new_settings.get('ui_settings', {}).get('theme', 'unknown'),
+        "cost_tracking": new_settings.get('cost_management', {}).get('track_costs', False)
+    })
+    
     if settings_manager.save_settings(new_settings):
         current_settings = settings_manager.load_settings()
         orchestrator.update_settings(current_settings)
         session['message'] = 'Settings saved successfully!'
+        debug_log("settings_saved", {"success": True})
     else:
         session['message'] = 'Failed to save settings.'
+        debug_error("settings_save_failed", "Failed to save settings")
     
     return redirect(url_for('settings_page'))
 
@@ -344,11 +374,34 @@ def get_session_conversation(session_id, limit=10):
 # Removed complex fact extraction - now using simple conversation context instead
 
 
+# Add debug log viewer route
+@app.route('/debug-logs')
+def debug_logs():
+    """Simple debug log viewer"""
+    if not is_debug_enabled():
+        return "Debug mode not enabled. Set CLAUDE_DEBUG=1", 404
+    
+    try:
+        with open('/tmp/exploregpt_logs/exploregpt_debug.log', 'r') as f:
+            logs = f.readlines()[-100:]  # Last 100 lines
+        
+        log_html = "<h1>ExploreGPT Debug Logs (Last 100 entries)</h1><pre>" + "".join(logs) + "</pre>"
+        return log_html
+    except FileNotFoundError:
+        return "No debug logs found", 404
+
 if __name__ == '__main__':
+    # Enable debug mode by default for troubleshooting
+    import os
+    if 'CLAUDE_DEBUG' not in os.environ:
+        os.environ['CLAUDE_DEBUG'] = '1'
+        print("🔧 Auto-enabled debug mode for troubleshooting")
+    
     print("🚀 Starting FelixGPT...")
     if is_debug_enabled():
         print("🐛 Claude Debug Mode: ENABLED")
         print("   - Logs to /tmp/exploregpt_logs/exploregpt_debug.log")
+        print("   - View logs at http://localhost:5001/debug-logs")
     print("✅ OpenAI API: Ready")
     print("✅ Google API: Ready")
     print()

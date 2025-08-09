@@ -1,6 +1,7 @@
 import json
 import sqlite3
 from typing import Dict, Any
+from .debug_logger import debug_log, debug_error
 
 class SettingsManager:
     """Settings manager using SQLite for persistence"""
@@ -33,6 +34,7 @@ class SettingsManager:
     
     def load_settings(self) -> Dict[str, Any]:
         """Load settings from SQLite database"""
+        debug_log("settings_load_start", {})
         try:
             conn = sqlite3.connect('memory.db')
             cursor = conn.cursor()
@@ -45,13 +47,15 @@ class SettingsManager:
                 saved_settings = json.loads(row[0])
                 # Merge with defaults to ensure all keys exist
                 return self._merge_settings(self.default_settings, saved_settings)
-        except (sqlite3.Error, json.JSONDecodeError):
-            pass
+        except (sqlite3.Error, json.JSONDecodeError) as e:
+            debug_error("settings_load_error", str(e))
         
+        debug_log("settings_load_complete", {"using_defaults": True})
         return self.default_settings.copy()
     
     def save_settings(self, settings: Dict[str, Any]) -> bool:
         """Save settings to SQLite database"""
+        debug_log("settings_save_start", {"keys": list(settings.keys())})
         try:
             # Merge with defaults to ensure consistency
             merged_settings = self._merge_settings(self.default_settings, settings)
@@ -67,8 +71,10 @@ class SettingsManager:
             
             conn.commit()
             conn.close()
+            debug_log("settings_save_complete", {"success": True})
             return True
-        except sqlite3.Error:
+        except sqlite3.Error as e:
+            debug_error("settings_save_error", str(e))
             return False
     
     def _merge_settings(self, defaults: Dict, user_settings: Dict) -> Dict:

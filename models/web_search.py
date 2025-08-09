@@ -4,7 +4,7 @@ import re
 from typing import List, Dict, Optional
 from bs4 import BeautifulSoup
 import time
-from .debug_logger import debug_search, debug_error
+from .debug_logger import debug_search, debug_error, debug_log
 
 class SearchResult:
     """Simple search result container"""
@@ -41,6 +41,12 @@ class SimpleWebSearch:
         """Check if message needs web search"""
         message_lower = message.lower()
         
+        debug_log("search_intent_check", {
+            "message_length": len(message),
+            "has_triggers": any(trigger in message_lower for trigger in self.search_triggers),
+            "has_temporal": any(keyword in message_lower for keyword in self.temporal_keywords)
+        })
+        
         # Check for explicit search requests
         if any(trigger in message_lower for trigger in self.search_triggers):
             return True
@@ -53,6 +59,13 @@ class SimpleWebSearch:
     
     def search(self, query: str, count: int = 5, extract_content: bool = False) -> List[SearchResult]:
         """Perform web search with fallback"""
+        debug_log("web_search_start", {
+            "query": query[:50],  # Truncate for privacy
+            "count": count,
+            "extract_content": extract_content,
+            "has_brave_key": bool(self.brave_api_key)
+        })
+        
         start_time = time.time()
         results = []
         
@@ -70,8 +83,15 @@ class SimpleWebSearch:
         
         # Log search operation
         latency = round((time.time() - start_time) * 1000, 2)
-        debug_search(query, len(results), latency, 
-                    provider='brave' if self.brave_api_key and results else 'duckduckgo')
+        provider = 'brave' if self.brave_api_key and results else 'duckduckgo'
+        debug_search(query[:50], provider, len(results), True, latency)
+        
+        debug_log("web_search_complete", {
+            "results_count": len(results),
+            "provider_used": provider,
+            "latency_ms": latency,
+            "success": len(results) > 0
+        })
         
         return results
     
