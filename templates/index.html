@@ -94,6 +94,9 @@
         document.getElementById('streaming-response').style.display = 'none';
         streamingContent = '';
         
+        // Add debug info to see if this is working
+        console.log('Starting chat request for message:', message);
+        
         // Start streaming
         fetch('/stream-chat', {
             method: 'POST',
@@ -134,7 +137,7 @@
         })
         .catch(error => {
             console.error('Streaming error:', error);
-            handleError('Connection error. Please try again.');
+            handleError('🔌 Connection error: ' + error.message + '. Please check the console for details.');
         });
         
         function handleStreamData(data) {
@@ -195,13 +198,18 @@
                 window.location.reload();
                 
             } else if (data.type === 'error') {
-                // Handle error
-                handleError('Error: ' + data.message);
+                // Handle error - show it prominently and don't reload
+                handleError('❌ Error: ' + data.message);
+                return; // Don't continue processing
             }
         }
         
         function handleError(message) {
+            // Show error prominently
+            document.getElementById('streaming-response').style.display = 'block';
             document.getElementById('streaming-content').textContent = message;
+            document.getElementById('streaming-content').style.color = '#dc2626';
+            document.getElementById('streaming-content').style.fontWeight = 'bold';
             document.getElementById('search-indicator').style.display = 'none';
             document.getElementById('typing-indicator').style.display = 'none';
             
@@ -209,6 +217,9 @@
             sendBtn.disabled = false;
             sendBtn.textContent = 'Send Message';
             messageInput.disabled = false;
+            
+            // Also log to console for debugging
+            console.error('Chat error:', message);
         }
     });
     
