@@ -28,31 +28,9 @@
         <div class="card">
             <h3>Provider Settings</h3>
             
-            {% for provider in ['openai', 'google'] %}
-                <h4>{{ provider|title }}</h4>
-                
-                <div class="form-group">
-                    <label>
-                        <input type="checkbox" name="{{ provider }}_enabled" 
-                               {% if settings.provider_settings[provider].enabled %}checked{% endif %}>
-                        Enabled
-                    </label>
-                </div>
-                
-                <div class="form-group">
-                    <label for="{{ provider }}_priority">Priority (1 = highest):</label>
-                    <input type="number" name="{{ provider }}_priority" id="{{ provider }}_priority"
-                           value="{{ settings.provider_settings[provider].priority }}" min="1" max="10">
-                </div>
-                
-                <div class="form-group">
-                    <label>
-                        <input type="checkbox" name="{{ provider }}_fallback"
-                               {% if settings.provider_settings[provider].fallback %}checked{% endif %}>
-                        Use as fallback
-                    </label>
-                </div>
-            {% endfor %}
+            <p style="color: #666; font-size: 0.9em;">
+                Provider settings are now automatic. OpenAI is primary with Google as fallback.
+            </p>
         </div>
         
         <!-- Response Settings -->

@@ -213,26 +213,13 @@ def update_settings():
         'google': request.form.get('google_model', 'gemini-pro')
     }
     
-    # Provider settings
-    new_settings['provider_settings'] = {
-        'openai': {
-            'enabled': 'openai_enabled' in request.form,
-            'priority': int(request.form.get('openai_priority', 1)),
-            'fallback': 'openai_fallback' in request.form
-        },
-        'google': {
-            'enabled': 'google_enabled' in request.form,
-            'priority': int(request.form.get('google_priority', 3)),
-            'fallback': 'google_fallback' in request.form
-        }
-    }
+    # Provider settings removed - now automatic (OpenAI primary, Google fallback)
     
     # Response settings
     new_settings['response_settings'] = {
         'max_tokens': int(request.form.get('max_tokens', 1000)),
         'timeout': int(request.form.get('timeout', 30)),
         'temperature': float(request.form.get('temperature', 0.7)),
-        'parallel_requests': 'parallel_requests' in request.form,
         'show_metadata': 'show_metadata' in request.form
     }
     
