@@ -131,11 +131,14 @@ def stream_chat():
     if 'session_id' not in session:
         session['session_id'] = str(uuid.uuid4())
     
+    # Capture session_id before generator starts
+    session_id = session['session_id']
+    
     def generate():
         try:
             # Log streaming chat initiation
             debug_log("streaming_chat", {
-                "session_id": session['session_id'],
+                "session_id": session_id,
                 "message_length": len(user_message)
             })
             
@@ -167,11 +170,11 @@ def stream_chat():
                 'latency': response_metadata.get('latency', 0)
             }
             
-            store_conversation(user_message, complete_response, context, session['session_id'])
+            store_conversation(user_message, complete_response, context, session_id)
             
             # Log successful streaming completion
             debug_log("streaming_complete", {
-                "session_id": session['session_id'],
+                "session_id": session_id,
                 "response_length": len(full_response_text),
                 "provider": response_metadata.get('provider'),
                 "latency": response_metadata.get('latency', 0)
@@ -184,7 +187,7 @@ def stream_chat():
             error_msg = str(e)
             # Log streaming error
             debug_error("streaming_error", error_msg, {
-                "session_id": session['session_id'],
+                "session_id": session_id,
                 "message_length": len(user_message)
             })
             yield "data: " + json.dumps({'type': 'error', 'message': error_msg}) + "\n\n"
