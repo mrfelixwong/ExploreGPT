@@ -1,102 +1,67 @@
 # CLAUDE.md - ExploreGPT Developer Guide
 
-## Architecture Overview
-Flask application with modular design using SQLite for persistence and environment-based configuration.
+## Code Efficiency Mandate
+
+**ALWAYS maintain the simplest and most efficient approach:**
+
+- ✅ Single SQLite database for all storage (conversations, settings, costs)
+- ✅ Only 2 LLM providers: OpenAI + Google (Anthropic removed - library issues)
+- ✅ Single-purpose classes with minimal methods
+- ✅ No multi-provider orchestration complexity
+- ✅ Consolidated web search with simple fallback
+- ✅ Basic cost estimation (not complex accounting)
+
+**Current architecture is optimized at 1,029 lines (31.5% reduction achieved)**
 
 ## Project Structure
+
 ```
-exploregpt/
-├── app.py              # Main Flask application (port 5001)
-├── start.py            # Launcher with environment validation
-├── models/
-│   ├── llm_clients.py  # LLM orchestration logic
-│   ├── settings.py     # Settings management
-│   └── cost_tracker.py # API cost calculations
-├── templates/          # Jinja2 HTML templates
-└── tests/unit/         # Comprehensive test suite
+app.py              # Flask app (368 lines) - conversations, routes, db init
+models/llm_clients.py   # LLM integration (289 lines) - OpenAI + Google only
+models/settings.py      # Settings (99 lines) - SQLite-based config
+models/cost_tracker.py  # Cost tracking (89 lines) - simple daily estimates
+models/web_search.py    # Web search (184 lines) - Brave + DuckDuckGo
+models/debug_logger.py  # Debug logging for Claude Code integration
 ```
 
 ## Development Guidelines
 
-### API Keys
-- ✅ Keys stored in `~/.zshrc` as environment variables
-- ❌ Never commit API keys to the repository
-- 📖 See `API_KEYS_SETUP.md` for configuration
+### Database
+- Single SQLite file (`memory.db`) for all data
+- Tables: conversations, settings, cost_tracking
+- No JSON files allowed
 
-### Testing
-- 64 unit tests with 100% pass rate
-- See `TESTING_INSTRUCTIONS.md` for complete procedures
-
-### Technical Notes
-- **Port**: 5001 (5000 conflicts with macOS AirPlay)
-- **Anthropic**: See `ANTHROPIC_ISSUE.md` for library compatibility details
+### API Providers
+- OpenAI: Full streaming support (primary)
+- Google: Non-streaming fallback (secondary)
+- Anthropic: REMOVED (broken library)
 
 ### Code Style
-- Server-side rendering only (no JavaScript)
-- Type hints where beneficial
-- Comprehensive error handling
-- 100% test coverage on critical paths
+- Prefer editing existing files over creating new ones
+- Never add unnecessary complexity
+- Remove unused methods immediately
+- Keep classes single-purpose
 
-## Common Tasks
-
-### Add New LLM Provider
-1. Update `models/llm_clients.py` with new provider class
-2. Add provider settings to `models/settings.py`
-3. Update cost tracking in `models/cost_tracker.py`
-4. Add provider to settings template
-
-### Modify Dark Mode
-- CSS styles in `templates/base.html`
-- Theme class applied via `ui_classes.theme_class`
-- Settings stored in `user_settings.json`
-
-### Debug API Issues
+### Testing
 ```bash
-# Test individual APIs
-python test_working_apis.py
-
-# Check environment variables
-python start.py  # Will show missing vars
-
-# Test debug system
-python test_debug_system.py
-
-# Enable Claude debug mode for enhanced logging
-export CLAUDE_DEBUG=1
-python test_debug_system.py
+python test_working_apis.py  # API connectivity
+python run_tests.py          # Unit tests
 ```
 
-### Claude Code Integration
-
-#### Debug Mode
-- Set `CLAUDE_DEBUG=1` environment variable for structured logging
-- Logs to `/tmp/exploregpt_logs/exploregpt_debug.log`
-- JSON format for easy parsing by Claude Code
-- Zero performance impact when disabled
-
-#### Logging Coverage
-- **API Calls**: Response times, success/failure, token usage
-- **Web Search**: Provider fallback, result counts, query processing
-- **Errors**: Context and error messages for troubleshooting
-
-#### Usage
+### Claude Code Debug Integration
 ```bash
-# Enable debug mode
 export CLAUDE_DEBUG=1
-python app.py
-
-# Test debug system
-python test_debug_system.py
-
-# View logs
-tail -f /tmp/exploregpt_logs/exploregpt_debug.log
+# Logs to /tmp/exploregpt_logs/exploregpt_debug.log
 ```
 
-## Production Considerations
-- Change `SECRET_KEY` from development default
-- Disable Flask debug mode
-- Consider rate limiting for API calls
-- Add proper logging infrastructure
+## Efficiency Checklist
 
-## Repository
-https://github.com/mrfelixwong/ExploreGPT
+When making changes, verify:
+- [ ] No unused imports or methods
+- [ ] Single storage system (SQLite only)
+- [ ] Minimal provider complexity
+- [ ] No dead code paths
+- [ ] Functions have single responsibility
+- [ ] Classes are focused and small
+
+**If complexity increases, simplify immediately. This codebase must remain minimal and efficient.**
